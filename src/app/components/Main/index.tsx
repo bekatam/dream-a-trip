@@ -52,7 +52,8 @@ const Main = () => {
 					);
 
 					const country =
-						data.results[data.results.length - 1].address_components[0].long_name;
+						data.results[data.results.length - 1].address_components[0]
+							.long_name;
 					if (city) {
 						setSelectedCity(city.long_name);
 						setCountry(country);

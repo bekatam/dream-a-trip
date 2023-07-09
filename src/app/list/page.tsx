@@ -114,9 +114,10 @@ const List = () => {
   const [filteredItems, setFilteredItems] = useState([...items])
 
   const handleType = (e: any) => {
-    setSearch(e.target.value);
-    let filtered = items.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase()))
+	const value = e.target.value;
+    setSearch(value);
+    // let filtered = items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
+	let filtered = value ? items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase())) : items
     setFilteredItems(filtered);
   };
 
@@ -134,7 +135,7 @@ const List = () => {
   };
 
 	return (
-		<div className="list max-h-full bg-blue-300 p-10 px-28 pb-20">
+		<div className="list max-h-full bg-blue-300 pt-10 px-28 pb-20">
 			<div className="text-center text-black font-bold text-3xl">List</div>
 			<div className="list__options flex justify-center mt-10">
 				<textarea
