@@ -24,6 +24,6 @@
       "@assets/*": ["./src/app/assets/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/city/create.ts"],
   "exclude": ["node_modules"]
 }
