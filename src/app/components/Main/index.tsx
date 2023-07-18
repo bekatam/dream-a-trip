@@ -42,7 +42,7 @@ const Main = () => {
 			if (selectedPlace) {
 				const { lat, lng } = selectedPlace;
 				const response = await fetch(
-					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyD8sth4FLPl4af02hfH1WWpgIZxMc4PKho`
+					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
 				);
 				const data = await response.json();
 				if (data.results && data.results.length > 0) {
