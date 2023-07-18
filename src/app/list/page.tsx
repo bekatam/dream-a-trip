@@ -31,7 +31,7 @@ const List = () => {
 		getDataAsync();
 	}, []);
 
-	const handleKeyDown = (event) => {
+	const handleKeyDown = (event: any) => {
 		if (event.key === "Enter") {
 			event.preventDefault();
 		}
