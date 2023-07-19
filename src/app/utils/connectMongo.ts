@@ -4,7 +4,11 @@ dotenv.config();
 const MONGO_URL = process.env.MONGO_URL;
 
 const connectToMongo = async () => {
-	await mongoose.connect(MONGO_URL);
+	await mongoose.connect(
+		MONGO_URL,
+		{ useNewUrlParser: true },
+		{ useUnifiedTopology: true }
+	);
 };
 
 export default connectToMongo;
