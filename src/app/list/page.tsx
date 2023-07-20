@@ -14,6 +14,8 @@ const List = () => {
 			image: "",
 			country: "",
 			_id: "",
+			foodPrice: 0,
+			hotelPrice: 0,
 		},
 	]);
 	const [selectedOption, setSelectedOption] = useState("option1");
@@ -58,12 +60,12 @@ const List = () => {
 			setFilteredItems([...items]);
 		} else if (option === "option2") {
 			const ascendingItems = [...filteredItems].sort(
-				(a, b) => a.price - b.price
+				(a, b) => a.price * days - b.price * days
 			);
 			setFilteredItems(ascendingItems);
 		} else if (option === "option3") {
 			const descendingItems = [...filteredItems].sort(
-				(a, b) => b.price - a.price
+				(a, b) => b.price * days - a.price * days
 			);
 			setFilteredItems(descendingItems);
 		}
@@ -159,7 +161,11 @@ const List = () => {
 								/>
 								<div className="text-center text-2xl mt-2">{`${item.city}, ${item.country}`}</div>
 								<div className="text-center text-xl mt-1">
-									{(item.price * days).toLocaleString()} ₸
+									{(
+										(item.foodPrice + item.hotelPrice) * days +
+										(item.price - item.foodPrice - item.hotelPrice)
+									).toLocaleString()}{" "}
+									₸
 								</div>
 							</Link>
 						);

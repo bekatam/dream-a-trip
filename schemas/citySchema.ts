@@ -30,7 +30,7 @@ citySchema.pre<ICity>("save", function (next) {
 		);
 		this.price = totalPrice + this.foodPrice + this.hotelPrice;
 	} else {
-		this.price = 0;
+		this.price = this.foodPrice + this.hotelPrice;
 	}
 	next();
 });

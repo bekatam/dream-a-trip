@@ -3,11 +3,32 @@ import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import "./City.css";
 import { getData } from "@/app/endpoints/axios";
+import axios from "axios";
+import mongoose from "mongoose";
 
 const City = () => {
 	const pathname = usePathname().substring(6);
 	const [loading, setLoading] = useState(true);
-	const [items, setFilteredItems] = useState([
+	interface Destination {
+		name: string;
+		price: number;
+		link: string;
+		isBlurred: boolean;
+		_id: any;
+	}
+
+	interface Item {
+		city: string;
+		country: string;
+		price: number;
+		descr: string;
+		image: string;
+		destinations: Destination[];
+		foodPrice: number;
+		hotelPrice: number;
+	}
+
+	const [items, setFilteredItems] = useState<Item[]>([
 		{
 			city: "",
 			country: "",
@@ -20,12 +41,14 @@ const City = () => {
 					price: 0,
 					link: "",
 					isBlurred: false,
+					_id: new mongoose.Types.ObjectId(),
 				},
 			],
 			foodPrice: 0,
 			hotelPrice: 0,
 		},
 	]);
+
 	useEffect(() => {
 		const getDataAsync = async () => {
 			const fetchedItems = await getData();
@@ -37,16 +60,32 @@ const City = () => {
 		};
 		getDataAsync();
 	}, []);
-	const handleBlurButton = (nameToBlur: string) => {
+	const handleBlurButton = (itemToBlur: string) => {
 		setFilteredItems((prevItems) => {
 			const updatedItems = prevItems.map((item) => {
 				const updatedDestinations = item.destinations.map((destination) => {
-					if (destination.name === nameToBlur) {
+					if (destination._id === itemToBlur && destination.link == " ") {
+						axios
+							.delete(`/api/city/${pathname}`)
+							.then((response) => {
+								console.log(response.data); // You can handle the response here if needed
+							})
+							.catch((error) => {
+								console.error("error"); // Handle any errors that occur during the request
+							});
+						return null;
+					} else if (destination._id === itemToBlur) {
+						console.log("hello");
 						return { ...destination, isBlurred: !destination.isBlurred };
 					}
 					return destination;
 				});
-				return { ...item, destinations: updatedDestinations };
+
+				const filteredDestinations = updatedDestinations.filter(
+					(destination) => destination !== null
+				) as Destination[];
+
+				return { ...item, destinations: filteredDestinations };
 			});
 			return updatedItems;
 		});
@@ -73,6 +112,7 @@ const City = () => {
 			price: shopPrice,
 			link: "",
 			isBlurred: false,
+			_id: new mongoose.Types.ObjectId(),
 		};
 
 		setFilteredItems((prevItems) => [
@@ -84,6 +124,8 @@ const City = () => {
 
 		setShopName("");
 		setShopPrice(0);
+
+		await axios.post(`/api/city/${pathname}`, newDestination);
 	};
 
 	return (
@@ -92,16 +134,28 @@ const City = () => {
 				<>
 					<div className="text-center text-3xl">{`${items[0].city}, ${items[0].country}`}</div>
 					<div className="text-center text-2xl mt-5">
-						Price: {items[0].price.toLocaleString()} ₸
+						Price:{" "}
+						<span className="font-semibold">
+							{items[0].price.toLocaleString()}
+						</span>{" "}
+						₸
 					</div>
 					<div className="flex mt-10 justify-between gap-20">
 						<div className="flex text-xl flex-col gap-5">
-							<div className="">{items[0].descr}</div>
-							<div className="">
-								Средняя цена за питание на целый день: {items[0].foodPrice} ₸
+							<div>{items[0].descr}</div>
+							<div>
+								Средняя цена за питание на целый день:{" "}
+								<span className="font-semibold">
+									{items[0].foodPrice.toLocaleString()}
+								</span>{" "}
+								₸
 							</div>
-							<div className="">
-								Средняя цена за ночь в отеле: {items[0].hotelPrice} ₸
+							<div>
+								Средняя цена за ночь в отеле:{" "}
+								<span className="font-semibold">
+									{items[0].hotelPrice.toLocaleString()}
+								</span>{" "}
+								₸
 							</div>
 							<ul className="flex gap-5 flex-col">
 								{items[0].destinations.map((destination, index) => {
@@ -116,8 +170,8 @@ const City = () => {
 												<p>
 													{index + 1 + ")"} {destination.name}
 												</p>
-												<p>Цена: {destination.price} ₸</p>
-												{destination.link !== "" && (
+												<p>Цена: {destination.price.toLocaleString()} ₸</p>
+												{destination.link != " " && (
 													<a
 														href={destination.link}
 														target="_blank"
@@ -130,7 +184,7 @@ const City = () => {
 											</li>
 											<button
 												onClick={() => {
-													handleBlurButton(destination.name);
+													handleBlurButton(destination._id);
 												}}
 											>
 												X
@@ -150,7 +204,7 @@ const City = () => {
 										type="text"
 										name="shop_name"
 										id="shop_name"
-										className="w-fit"
+										className="w-fit p-2"
 										placeholder="Купить сувениры для мамы..."
 										value={shopName}
 										onChange={(e) => setShopName(e.target.value)}
@@ -164,8 +218,8 @@ const City = () => {
 										name="shop_price"
 										id="shop_price"
 										placeholder="1000"
-										className="w-fit"
-										value={shopPrice}
+										className="w-fit p-2"
+										value={shopPrice.toString()}
 										required
 										onChange={(e) => setShopPrice(parseInt(e.target.value))}
 									/>
