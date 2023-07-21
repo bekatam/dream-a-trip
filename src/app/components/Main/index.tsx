@@ -49,17 +49,15 @@ const Main = () => {
 				);
 				const data = await response.json();
 				if (data.results && data.results.length > 0) {
-					const city = data.results[0].address_components.find(
-						(component: any) =>
-							component.types.includes("locality") ||
-							component.types.includes("administrative_area_level_1")
-					);
+					console.log(data.results[0]);
+					const city = data.results[0].plus_code?.compound_code?.substring(7);
+					console.log(city);
 
 					const country =
 						data.results[data.results.length - 1].address_components[0]
 							.long_name;
 					if (city) {
-						setSelectedCity(city.long_name);
+						setSelectedCity(city);
 						setCountry(country);
 					}
 				}
@@ -133,7 +131,7 @@ const Main = () => {
 						X
 					</span>
 					<div className="city__wrapper__info flex flex-col justify-between items-center text-[19px]">
-						<div className="city mb-5">{`${selectedCity}, ${country}`}</div>
+						<div className="city mb-5">{`${selectedCity}`}</div>
 						<div className="city__descr mb-10">
 							Далеко-далеко за словесными горами в стране гласных и согласных
 							живут рыбные тексты. Подпоясал имеет ручеек свое океана своего

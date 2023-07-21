@@ -48,7 +48,9 @@ const List = () => {
 			  )
 			: items;
 		if (affordable) {
-			filtered = filtered.filter((item) => item.price <= budget);
+			filtered = filtered.filter(
+				(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
+			);
 		}
 		setFilteredItems(filtered);
 	};
@@ -57,15 +59,22 @@ const List = () => {
 		setSelectedOption(option);
 
 		if (option === "option1") {
-			setFilteredItems([...items]);
+			if (affordable) {
+				const updItems = filteredItems.filter(
+					(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
+				);
+				setFilteredItems(updItems);
+			} else {
+				setFilteredItems([...items]);
+			}
 		} else if (option === "option2") {
 			const ascendingItems = [...filteredItems].sort(
-				(a, b) => a.price * days - b.price * days
+				(a, b) => a.foodPrice + a.hotelPrice - b.foodPrice - b.hotelPrice
 			);
 			setFilteredItems(ascendingItems);
 		} else if (option === "option3") {
 			const descendingItems = [...filteredItems].sort(
-				(a, b) => b.price * days - a.price * days
+				(a, b) => b.foodPrice + b.hotelPrice - a.foodPrice - a.hotelPrice
 			);
 			setFilteredItems(descendingItems);
 		}
@@ -76,10 +85,14 @@ const List = () => {
 	const handleCheckboxChange = (event: any) => {
 		const isChecked = event.target.checked;
 		setAffordable(isChecked);
-		const updItems = isChecked
-			? filteredItems.filter((item) => item.price <= budget)
-			: items;
-		setFilteredItems(updItems);
+		if (isChecked) {
+			const updItems = filteredItems.filter(
+				(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
+			);
+			setFilteredItems(updItems);
+		} else {
+			setFilteredItems([...items]);
+		}
 	};
 
 	return (
@@ -147,9 +160,9 @@ const List = () => {
 								href={`/city/${item._id}`}
 								key={index}
 								className={`col-span-1 h-[400px] transition-all duration-500 rounded-3xl cursor-pointer border-2 border-blue-300 hover:border-black ${
-									+budget > item.price * 0.75
+									+budget > (item.foodPrice + item.hotelPrice) * days * 0.9
 										? "bg-green-300"
-										: budget > item.price / 2
+										: budget > ((item.foodPrice + item.hotelPrice) * days) / 2
 										? "bg-yellow-300"
 										: "bg-red-300"
 								} `}
@@ -161,10 +174,13 @@ const List = () => {
 								/>
 								<div className="text-center text-2xl mt-2">{`${item.city}, ${item.country}`}</div>
 								<div className="text-center text-xl mt-1">
-									{(
+									{`${(
+										(item.foodPrice + item.hotelPrice) *
+										days
+									).toLocaleString()} - ${(
 										(item.foodPrice + item.hotelPrice) * days +
 										(item.price - item.foodPrice - item.hotelPrice)
-									).toLocaleString()}{" "}
+									).toLocaleString()}`}{" "}
 									₸
 								</div>
 							</Link>
