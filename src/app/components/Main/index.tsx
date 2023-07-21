@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "./Main.css";
 import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
+const dotenv = require("dotenv");
+dotenv.config();
 
 interface UserData {
 	lat: any;
@@ -31,6 +33,7 @@ const Main = () => {
 	};
 
 	const onMarkerDragEnd = useCallback(async (event: any) => {
+		console.log("setSelectedPlace");
 		setSelectedPlace({
 			lat: event.latLng.lat(),
 			lng: event.latLng.lng(),
@@ -42,7 +45,7 @@ const Main = () => {
 			if (selectedPlace) {
 				const { lat, lng } = selectedPlace;
 				const response = await fetch(
-					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
+					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyD8sth4FLPl4af02hfH1WWpgIZxMc4PKho`
 				);
 				const data = await response.json();
 				if (data.results && data.results.length > 0) {

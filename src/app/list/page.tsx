@@ -131,7 +131,7 @@ const List = () => {
 						<p>Write days: </p>
 						<input
 							type="number"
-							value={days.toString()}
+							value={days}
 							placeholder="Write days: "
 							onChange={(e) => setDays(Number(e.target.value))}
 							min={1}
