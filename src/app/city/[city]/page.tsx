@@ -238,7 +238,7 @@ const City = () => {
 					</div>
 				</>
 			) : (
-				<p className="text-3xl">Loading</p>
+				<p className="text-3xl">Loading...</p>
 			)}
 		</div>
 	);
