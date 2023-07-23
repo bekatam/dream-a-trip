@@ -138,13 +138,14 @@ const List = () => {
 							value={budget.toString()}
 							placeholder="Write your budget"
 							onChange={(e) => setBudget(Number(e.target.value))}
+							min={0}
 						/>
 					</div>
 					<div className="flex justify-between gap-2 items-center">
 						<p>Write days: </p>
 						<input
 							type="number"
-							value={days}
+							value={days.toString()}
 							placeholder="Write days: "
 							onChange={(e) => setDays(Number(e.target.value))}
 							min={1}
