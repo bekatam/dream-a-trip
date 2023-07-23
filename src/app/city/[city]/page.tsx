@@ -64,8 +64,7 @@ const City = () => {
 		setFilteredItems((prevItems) => {
 			const updatedItems = prevItems.map((item) => {
 				const updatedDestinations = item.destinations.map((destination) => {
-					if (destination._id === itemToBlur && destination.link == " ") {
-						console.log(pathname);
+					if (destination._id === itemToBlur && destination.link.trim() == "") {
 						axios
 							.delete(`/api/city/${pathname}`)
 							.then((response) => {
@@ -76,7 +75,6 @@ const City = () => {
 							});
 						return null;
 					} else if (destination._id === itemToBlur) {
-						console.log("hello");
 						return { ...destination, isBlurred: !destination.isBlurred };
 					}
 					return destination;
@@ -173,7 +171,7 @@ const City = () => {
 													{index + 1 + ")"} {destination.name}
 												</p>
 												<p>Цена: {destination.price.toLocaleString()} ₸</p>
-												{destination.link != " " && (
+												{destination.link.trim() != "" && (
 													<a
 														href={destination.link}
 														target="_blank"

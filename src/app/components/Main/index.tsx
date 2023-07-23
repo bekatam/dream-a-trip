@@ -33,7 +33,6 @@ const Main = () => {
 	};
 
 	const onMarkerDragEnd = useCallback(async (event: any) => {
-		console.log("setSelectedPlace");
 		setSelectedPlace({
 			lat: event.latLng.lat(),
 			lng: event.latLng.lng(),

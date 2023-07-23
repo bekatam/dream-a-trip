@@ -65,7 +65,7 @@ const List = () => {
 				);
 				setFilteredItems(updItems);
 			} else {
-				setFilteredItems([...items]);
+				setFilteredItems([...filteredItems]);
 			}
 		} else if (option === "option2") {
 			const ascendingItems = [...filteredItems].sort(
@@ -84,6 +84,7 @@ const List = () => {
 
 	const handleCheckboxChange = (event: any) => {
 		const isChecked = event.target.checked;
+
 		setAffordable(isChecked);
 		if (isChecked) {
 			const updItems = filteredItems.filter(
@@ -91,7 +92,13 @@ const List = () => {
 			);
 			setFilteredItems(updItems);
 		} else {
-			setFilteredItems([...items]);
+			setFilteredItems(
+				items.filter((item) =>
+					(item.city + item.country)
+						.toLowerCase()
+						.includes(search.toLowerCase())
+				)
+			);
 		}
 	};
 

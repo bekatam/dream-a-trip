@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cityModel } from "../../../../../models/CityModel";
 
 export async function POST(req: NextRequest, res: NextResponse) {
-	const id = req.url.substring(31);
-	console.log(id);
+	const url = new URL(req.url);
+	const id = url.pathname.split("/")[3];
 	await connectToMongo();
 	const result = await req.json();
 	const item = await cityModel.findById(id);
@@ -19,7 +19,6 @@ export async function POST(req: NextRequest, res: NextResponse) {
 
 export async function DELETE(req: NextRequest, res: NextResponse) {
 	const id = req.url.substring(31);
-	console.log("id ", id);
 	try {
 		await connectToMongo();
 
