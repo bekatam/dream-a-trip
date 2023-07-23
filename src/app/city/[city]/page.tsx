@@ -122,11 +122,12 @@ const City = () => {
 				destinations: [...prevItems[0].destinations, newDestination],
 			},
 		]);
-
+		if (shopName.trim() != "") {
+			console.log(pathname);
+			await axios.post(`/api/city/${pathname}`, newDestination);
+		}
 		setShopName("");
 		setShopPrice(0);
-
-		await axios.post(`/api/city/${pathname}`, newDestination);
 	};
 
 	return (
@@ -220,7 +221,6 @@ const City = () => {
 										id="shop_price"
 										placeholder="1000"
 										className="w-fit p-2"
-										value={shopPrice.toString()}
 										required
 										onChange={(e) => setShopPrice(parseInt(e.target.value))}
 									/>
