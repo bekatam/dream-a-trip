@@ -18,7 +18,8 @@ export async function POST(req: NextRequest, res: NextResponse) {
 }
 
 export async function DELETE(req: NextRequest, res: NextResponse) {
-	const id = req.url.substring(31);
+	const url = new URL(req.url);
+	const id = url.pathname.split("/")[3];
 	try {
 		await connectToMongo();
 
