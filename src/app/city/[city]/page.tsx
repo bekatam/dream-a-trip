@@ -224,6 +224,7 @@ const City = () => {
 										id="shop_price"
 										placeholder="1000"
 										className="w-fit p-2"
+										value={shopPrice}
 										required
 										onChange={(e) => setShopPrice(parseInt(e.target.value))}
 									/>
