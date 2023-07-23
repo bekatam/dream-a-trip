@@ -4,6 +4,7 @@ import { cityModel } from "../../../../../models/CityModel";
 
 export async function POST(req: NextRequest, res: NextResponse) {
 	const id = req.url.substring(31);
+	console.log(id);
 	await connectToMongo();
 	const result = await req.json();
 	const item = await cityModel.findById(id);
