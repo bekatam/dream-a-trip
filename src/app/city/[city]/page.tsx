@@ -125,7 +125,7 @@ const City = () => {
 			await axios.post(`/api/city/${pathname}`, newDestination);
 		}
 		setShopName("");
-		setShopPrice(parseInt(""));
+		setShopPrice(0);
 	};
 
 	return (
