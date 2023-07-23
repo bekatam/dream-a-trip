@@ -9,10 +9,10 @@ const Nav = () => {
 				<Image src={require("@assets/logo.png")} alt="logo" height={48} />
 			</Link>
 			<Link href="/" className="text-xl">
-				Map
+				Map (Pre-alpha)
 			</Link>
 			<Link href="/list" className="text-xl">
-				List
+				List (Beta)
 			</Link>
 			<button className="text-xl">Sign In (Coming Soon)</button>
 		</div>

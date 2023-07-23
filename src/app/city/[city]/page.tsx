@@ -157,6 +157,11 @@ const City = () => {
 								</span>{" "}
 								₸
 							</div>
+							<div className="font-bold">
+								Просьба добавлять только проверенные места, а если добавляете
+								свои покупки, можете высчитать, сохранить себе бюджет и удалить,
+								так как это бета-версия авторизация недоступна
+							</div>
 							<ul className="flex gap-5 flex-col">
 								{items[0].destinations.map((destination, index) => {
 									return (
@@ -199,7 +204,7 @@ const City = () => {
 								onSubmit={handleFormSubmit}
 							>
 								<div className="flex flex-col gap-2">
-									<label htmlFor="shop_name">Укажите покупку</label>
+									<label htmlFor="shop_name">Укажите назначение</label>
 									<input
 										type="text"
 										name="shop_name"

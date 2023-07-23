@@ -107,7 +107,7 @@ const List = () => {
 			<div className="text-center text-black font-bold text-3xl">List</div>
 			<div className="list__options flex justify-center mt-10">
 				<textarea
-					placeholder="Search a city"
+					placeholder="Поиск города"
 					className="h-10 resize-none w-1/3 outline-none border-none p-2 opacity-90"
 					onKeyDown={handleKeyDown}
 					onChange={handleType}
@@ -126,7 +126,7 @@ const List = () => {
 						<option value="option3">По убыванию</option>
 					</select>
 					<div className="flex gap-4 items-center">
-						<label htmlFor="affordable">Affordable for me</label>
+						<label htmlFor="affordable">Доступно с моим бюджетом</label>
 						<input
 							type="checkbox"
 							name="affordable"
@@ -139,7 +139,7 @@ const List = () => {
 				</div>
 				<div className="flex flex-col gap-2">
 					<div className="flex gap-2 justify-between items-center">
-						<p>Write your budget, ₸: </p>
+						<p>Бюджет, ₸: </p>
 						<input
 							type="number"
 							value={budget.toString()}
@@ -149,7 +149,7 @@ const List = () => {
 						/>
 					</div>
 					<div className="flex justify-between gap-2 items-center">
-						<p>Write days: </p>
+						<p>Дней: </p>
 						<input
 							type="number"
 							value={days.toString()}

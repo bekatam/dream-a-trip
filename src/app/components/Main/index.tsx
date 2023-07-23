@@ -130,7 +130,7 @@ const Main = () => {
 						X
 					</span>
 					<div className="city__wrapper__info flex flex-col justify-between items-center text-[19px]">
-						<div className="city mb-5">{`${selectedCity}`}</div>
+						<div className="mb-5">{`${selectedCity}`}</div>
 						<div className="city__descr mb-10">Coming soon...</div>
 						<div className="want flex self-start text-xl items-center">
 							I want to go here
