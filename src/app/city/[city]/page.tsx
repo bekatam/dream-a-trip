@@ -65,6 +65,7 @@ const City = () => {
 			const updatedItems = prevItems.map((item) => {
 				const updatedDestinations = item.destinations.map((destination) => {
 					if (destination._id === itemToBlur && destination.link == " ") {
+						console.log(pathname);
 						axios
 							.delete(`/api/city/${pathname}`)
 							.then((response) => {
