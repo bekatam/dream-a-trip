@@ -2,9 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "./Main.css";
 import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
-const dotenv = require("dotenv");
-dotenv.config();
-
+require("dotenv").config();
 interface UserData {
 	lat: any;
 	lng: any;
@@ -41,10 +39,11 @@ const Main = () => {
 
 	useEffect(() => {
 		const fetchCity = async () => {
+			const url = await process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 			if (selectedPlace) {
 				const { lat, lng } = selectedPlace;
 				const response = await fetch(
-					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyD8sth4FLPl4af02hfH1WWpgIZxMc4PKho`
+					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${url}`
 				);
 				const data = await response.json();
 				if (data.results && data.results.length > 0) {
@@ -85,7 +84,9 @@ const Main = () => {
 					modal ? "modal-open" : ""
 				}`}
 			>
-				<LoadScript googleMapsApiKey="AIzaSyD8sth4FLPl4af02hfH1WWpgIZxMc4PKho">
+				<LoadScript
+					googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY + ""}
+				>
 					<GoogleMap
 						mapContainerStyle={containerStyle}
 						zoom={3}
