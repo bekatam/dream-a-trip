@@ -227,6 +227,7 @@ const City = () => {
 										value={shopPrice}
 										required
 										onChange={(e) => setShopPrice(parseInt(e.target.value))}
+										min={0}
 									/>
 								</div>
 								<input
