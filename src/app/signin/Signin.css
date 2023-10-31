@@ -1,0 +1,40 @@
+.signin {
+  height: 100vh;
+  background: url('../assets/login_bg.jpeg') no-repeat;
+  background-size: cover;
+  background-position: center center;
+}
+
+form {
+  background: linear-gradient(61deg, rgba(250,251,205,1) 4%, rgba(254,192,182,1) 63%);
+  border: 1px solid white;
+  width: 500px;
+  padding: 55px 55px 37px;
+  border-radius: 10px;
+}
+
+.logo_image {
+  height: 65px;
+  width: 75px;
+}
+
+.image__wrapper {
+  border-radius: 100%;
+  display: flex;
+  width: fit-content;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  justify-content: center;
+  align-items: center;
+  background-color: #fff;
+}
+
+h3 {
+  font-size: 30px;
+  margin-top: 27px;
+  margin-bottom: 34px;
+  color: #fff;
+  line-height: 1.2;
+  text-align: center;
+}

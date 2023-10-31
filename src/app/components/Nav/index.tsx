@@ -14,7 +14,9 @@ const Nav = () => {
 			<Link href="/list" className="text-xl">
 				List (Beta)
 			</Link>
-			<button className="text-xl">Sign In (Coming Soon)</button>
+			<Link href="/signin" className="text-xl">
+				Sign In
+			</Link>
 		</div>
 	);
 };
