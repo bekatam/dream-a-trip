@@ -3,10 +3,11 @@
   background: url('../assets/login_bg.jpeg') no-repeat;
   background-size: cover;
   background-position: center center;
+  filter: blur(2px);
 }
 
 form {
-  background: linear-gradient(61deg, rgba(250,251,205,1) 4%, rgba(254,192,182,1) 63%);
+  background: linear-gradient(167deg,#fafbcd 0%,#fec0b6 100%);
   border: 1px solid white;
   width: 500px;
   padding: 55px 55px 37px;
