@@ -15,7 +15,7 @@ const Signin = () => {
         <div className='image__wrapper'>
           <Image src={require("@assets/logo.png")} className='logo_image' alt="logo"/>
         </div>
-        <h3 className={poppins.className}>LOG IN</h3>
+        <h3 className={poppins.className + ' text-black my-5 text-center text-3xl'}>LOG IN</h3>
         <label htmlFor='email'>E-mail</label>
         <input type='email' id='email' className='rounded-md p-1'/>
         <label className='mt-3' htmlFor='password'>Password</label>
