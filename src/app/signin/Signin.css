@@ -3,7 +3,7 @@
   background: url('../assets/login_bg.jpeg') no-repeat;
   background-size: cover;
   background-position: center center;
-  filter: blur(2px);
+  filter: brightness(70%);
 }
 
 form {
