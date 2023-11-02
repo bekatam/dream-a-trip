@@ -20,6 +20,9 @@ label {
 }
 
 .login_image {
+  position: absolute;
+  top: 0;
+  right: 0;
   height: 30px;
   width: 30px;
 }
@@ -44,6 +47,7 @@ label {
 }
 
 .hint {
+  position: relative;
   transition: 0.7s all;
   color: rgb(255,0,0);
   font-size: 12px;
