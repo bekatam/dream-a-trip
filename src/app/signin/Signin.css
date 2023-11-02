@@ -41,6 +41,7 @@
   transition: 0.7s all;
   color: rgb(255,0,0);
   font-size: 12px;
+  height: 18px;
 }
 
 input {
