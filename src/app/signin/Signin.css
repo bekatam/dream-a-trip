@@ -14,13 +14,19 @@
   border-radius: 10px;
 }
 
+label {
+  display: flex;
+  align-items: center;
+}
+
+.login_image {
+  height: 30px;
+  width: 30px;
+}
+
 .logo_image {
   height: 65px;
   width: 75px;
-}
-
-.image__wrapper:hover {
-  background-color: rgb(0, 0, 0);
 }
 
 .image__wrapper {
