@@ -6,7 +6,7 @@
   filter: brightness(70%);
 }
 
-form {
+.form {
   background: linear-gradient(167deg,#fafbcd 0%,#fec0b6 100%);
   border: 1px solid white;
   width: 500px;
@@ -29,4 +29,16 @@ form {
   justify-content: center;
   align-items: center;
   background-color: #fff;
+}
+
+.email_hint {
+  transition: 0.7s all;
+  color: rgb(255,0,0);
+  font-size: 12px;
+}
+
+.password {
+  display: grid;
+  align-items: flex-start;
+  grid-template-columns: 2fr 1fr;
 }
