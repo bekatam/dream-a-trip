@@ -9,7 +9,7 @@
 .form {
   background: linear-gradient(167deg,#fafbcd 0%,#fec0b6 100%);
   border: 1px solid white;
-  width: 500px;
+  width: 550px;
   padding: 55px 55px 37px;
   border-radius: 10px;
 }
@@ -19,26 +19,46 @@
   width: 75px;
 }
 
+.image__wrapper:hover {
+  background-color: rgb(24, 142, 0);
+}
+
 .image__wrapper {
+  cursor: pointer;
   border-radius: 100%;
   display: flex;
   width: fit-content;
   width: 120px;
   height: 120px;
+  transition: 0.5s all;
   margin: 0 auto;
   justify-content: center;
   align-items: center;
   background-color: #fff;
 }
 
-.email_hint {
+.hint {
   transition: 0.7s all;
   color: rgb(255,0,0);
   font-size: 12px;
 }
 
+input {
+  outline: none;
+}
+
 .password {
+  font-size: 13px;
   display: grid;
-  align-items: flex-start;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: auto auto;
+  gap: 5px;
+  justify-content: space-between;
+}
+
+.btn {
+  transition: 0.5s all;
+}
+
+.btn:hover {
+  color: orange
 }

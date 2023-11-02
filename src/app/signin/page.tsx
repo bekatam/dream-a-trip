@@ -41,15 +41,15 @@ const Signin = () => {
         <h3 className={poppins.className + ' text-black my-4 text-center text-3xl'}>LOG IN</h3>
         <label htmlFor='email'>E-mail</label>
         <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' className='rounded-md p-1'/>
-        <p className={(emailHint ? 'opacity-100' : 'opacity-0') + ' email_hint'}>E-mail должен быть в формате example@example.com</p>
+        <p className={(emailHint ? 'opacity-100' : 'opacity-0') + ' hint'}>E-mail должен быть в формате example@example.com</p>
         <label className='mt-1' htmlFor='password'>Password</label>
         <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' className='rounded-md p-1'/>
-        <div className="password w-full justify-between">
-          <p className={(passwordHint ? 'opacity-100' : 'opacity-0') + ' email_hint'}>Пароль должен содержать 8 символов, заглавные и маленькие буквы, а также специальные символы</p>
-          <button className='rounded-xl ml-auto text-sm'>Forgot password?</button>
+        <div className="password">
+          <p className={(passwordHint ? 'opacity-100' : 'opacity-0') + ' hint hint_password'}>Пароль не соответсвует минимальным требованиям</p>
+          <button className='rounded-xl ml-auto btn'>Forgot password?</button>
         </div>
         <button className='rounded-xl mx-auto mt-5 bg-orange-300 w-fit px-5 py-1'>Login</button>
-        <button className='rounded-xl mx-auto text-xs'>{"Don't"} have account yet?</button>
+        <button className='rounded-xl mx-auto text-xs btn'>{"Don't"} have account yet?</button>
       </div>
     </div>
     </>
