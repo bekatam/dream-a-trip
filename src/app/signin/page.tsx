@@ -59,13 +59,13 @@ const Signin = () => {
           E-mail
           <Image src={require("@assets/user_email.png")} className='login_image' alt="login_email"/>
         </label>
-        <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' className='rounded-md p-1'/>
+        <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' placeholder='Username' className='rounded-md p-1'/>
         <p className={(emailHint ? 'opacity-100' : 'opacity-0') + ' hint'}>{emailHint}</p>
         <label className='mt-1' htmlFor='password'>
           Password
           <Image src={require("@assets/user_password.png")} className='login_image' alt="login_password"/>
         </label>
-        <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' className='rounded-md p-1'/>
+        <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' placeholder='Password' className='rounded-md p-1'/>
         <div className="password">
           <p className={(passwordHint ? 'opacity-100' : 'opacity-0') + ' hint hint_password'}>{passwordHint}</p>
           <button className='rounded-xl ml-auto btn'>Forgot password?</button>
