@@ -55,15 +55,15 @@ const Signin = () => {
           <Image src={require("@assets/logo.png")} className='logo_image' alt="logo"/>
         </div>
         <h3 className={poppins.className + ' text-black my-4 text-center text-3xl'}>LOG IN</h3>
-        <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' placeholder='Username' className='rounded-md p-1'/>
+        <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' placeholder='Username' className='rounded-md p-1 pl-7'/>
         <p className='hint'>
           <Image src={require("@assets/user_email.png")} className='login_image' alt="login_email"/>
           <span className={emailHint ? 'opacity-100' : 'opacity-0'}>{emailHint}</span>
         </p>
-        <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' placeholder='Password' className='rounded-md p-1'/>
+        <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' placeholder='Password' className='rounded-md p-1 pl-7'/>
         <div className="password">
+          <Image src={require("@assets/user_password.png")} className='login_image' alt="login_password"/>
           <p className='hint'>
-            <Image src={require("@assets/user_email.png")} className='login_image' alt="login_email"/>
             <span className={passwordHint ? 'opacity-100' : 'opacity-0'}>{passwordHint}</span>
           </p>
           <button className='rounded-xl ml-auto btn'>Forgot password?</button>

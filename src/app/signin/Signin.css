@@ -21,8 +21,8 @@ label {
 
 .login_image {
   position: absolute;
-  top: 0;
-  right: 0;
+  bottom: 110%;
+  left: 0;
   height: 30px;
   width: 30px;
 }
@@ -59,6 +59,7 @@ input {
 }
 
 .password {
+  position: relative;
   font-size: 13px;
   display: grid;
   grid-template-columns: auto auto;
