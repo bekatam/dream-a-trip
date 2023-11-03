@@ -11,6 +11,8 @@ const Signin = () => {
   const [emailHint, setEmailHint] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
   const [passwordHint, setPasswordHint] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/
   const passRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/
   useEffect(()=>{
@@ -45,6 +47,15 @@ const Signin = () => {
     }
   }
 
+  const handleFocus = (item: string, bool: boolean) => {
+    if(item == 'email') {
+      setEmailFocused(bool)
+    }
+    else if (item == 'password') {
+      setPasswordFocused(bool)
+    }
+  }
+
   return (
     <>
     <div className='w-full signin'>
@@ -55,16 +66,16 @@ const Signin = () => {
           <Image src={require("@assets/logo.png")} className='logo_image' alt="logo"/>
         </div>
         <h3 className={poppins.className + ' text-black my-4 text-center text-3xl'}>LOG IN</h3>
-        <input type='email' onChange={(e)=>setEmailValue(e.target.value)} id='email' placeholder='Username' className='rounded-md p-1 pl-7'/>
-        <p className='hint'>
-          <Image src={require("@assets/user_email.png")} className='login_image' alt="login_email"/>
-          <span className={emailHint ? 'opacity-100' : 'opacity-0'}>{emailHint}</span>
+        <input type='email' onFocus={()=>handleFocus('email', true)} onBlur={()=>handleFocus('email', false)} onChange={(e)=>setEmailValue(e.target.value)} id='email' placeholder='Username' className={'p-1 ' + (emailFocused ? 'pl-1' : 'pl-7')}/>
+        <p className='hint mb-7'>
+          <Image src={require("@assets/user_email.png")} className={(emailFocused ? 'focused' : 'unfocused') + ' login_image'} alt="login_email"/>
+          <span className={'transition-all duration-700 ' + (emailHint ? 'opacity-100' : 'opacity-0')}>{emailHint}</span>
         </p>
-        <input type='password' onChange={(e)=>setPasswordValue(e.target.value)} id='password' placeholder='Password' className='rounded-md p-1 pl-7'/>
+        <input type='password' onFocus={()=>handleFocus('password', true)} onBlur={()=>handleFocus('password', false)} onChange={(e)=>setPasswordValue(e.target.value)} id='password' placeholder='Password' className={'p-1 ' + (passwordFocused ? 'pl-1' : 'pl-7')}/>
         <div className="password">
-          <Image src={require("@assets/user_password.png")} className='login_image' alt="login_password"/>
+          <Image src={require("@assets/user_password.png")} className={(passwordFocused ? 'focused focused_password' : 'unfocused unfocused_password') + ' login_image'} alt="login_password"/>
           <p className='hint'>
-            <span className={passwordHint ? 'opacity-100' : 'opacity-0'}>{passwordHint}</span>
+            <span className={'duration-700 ' + (passwordHint ? 'opacity-100' : 'opacity-0')}>{passwordHint}</span>
           </p>
           <button className='rounded-xl ml-auto btn'>Forgot password?</button>
         </div>

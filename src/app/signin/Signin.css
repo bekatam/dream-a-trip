@@ -19,9 +19,13 @@ label {
   align-items: center;
 }
 
+input:focus::placeholder {
+  color: transparent;
+}
+
 .login_image {
+  transition: 0.5s all;
   position: absolute;
-  bottom: 110%;
   left: 0;
   height: 30px;
   width: 30px;
@@ -33,13 +37,11 @@ label {
 }
 
 .image__wrapper {
-  cursor: pointer;
   border-radius: 100%;
   display: flex;
   width: fit-content;
   width: 120px;
   height: 120px;
-  transition: 0.5s all;
   margin: 0 auto;
   justify-content: center;
   align-items: center;
@@ -56,6 +58,24 @@ label {
 
 input {
   outline: none;
+  background-color: transparent;
+  border-bottom: 1px solid rgba(255, 0, 0, 0.316);
+}
+
+.focused {
+  bottom: 240%;
+}
+
+.focused_password {
+  bottom: 250%;
+}
+
+.unfocused {
+  bottom: 110%;
+}
+
+.unfocused_password {
+  bottom: 130%;
 }
 
 .password {
