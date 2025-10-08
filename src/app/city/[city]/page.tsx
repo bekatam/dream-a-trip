@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
 import { getData } from "@/app/endpoints/axios"
 import axios from "axios"
@@ -63,10 +63,55 @@ export default function CityPage() {
       const fetchedItems = await getData()
       const filtered = fetchedItems.filter((item: any) => item._id === pathname)
       setFilteredItems(filtered)
+
+      // Fetch AI-generated data (description, places, prices)
+      try {
+        // prevent duplicate calls in React Strict Mode and when data already present
+        const alreadyHasAiData = !!filtered[0] &&
+          typeof filtered[0].descr === "string" && filtered[0].descr.trim().length > 0 &&
+          Array.isArray(filtered[0].destinations) && filtered[0].destinations.length > 0
+
+        // per-pathname guard
+        const aiOnceKeyRef = (aiOnceRef.current as any) as { key?: string }
+        if (alreadyHasAiData || aiOnceKeyRef.key === pathname) {
+          setLoading(false)
+          return
+        }
+        aiOnceKeyRef.key = pathname
+
+        const aiRes = await axios.post("/api/describe", { selectedCity: filtered[0]?.city || "", cityId: filtered[0]?._id })
+        const { description, places, foodPrice, hotelPrice } = aiRes.data || {}
+
+        const aiDestinations = Array.isArray(places)
+          ? places.map((p: any) => ({
+              name: p?.name || "",
+              price: Number.parseInt(p?.price) || 0,
+              link: p?.link || "",
+              isBlurred: false,
+              _id: new mongoose.Types.ObjectId(),
+            }))
+          : []
+
+        setFilteredItems((prev) => [
+          {
+            ...prev[0],
+            descr: typeof description === "string" ? description : prev[0]?.descr,
+            destinations: [...(prev[0]?.destinations || []), ...aiDestinations],
+            foodPrice: Number.isFinite(Number(foodPrice)) ? Number(foodPrice) : prev[0]?.foodPrice,
+            hotelPrice: Number.isFinite(Number(hotelPrice)) ? Number(hotelPrice) : prev[0]?.hotelPrice,
+          },
+        ])
+      } catch (e) {
+        // Ignore AI errors, keep base data
+      }
+
       setLoading(false)
     }
     getDataAsync()
   }, [pathname])
+
+  // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
+  const aiOnceRef = useRef<{ key?: string }>({})
 
   const handleBlurButton = (itemToBlur: string) => {
     setFilteredItems((prevItems) => {

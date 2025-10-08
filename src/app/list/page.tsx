@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 import { Search, SlidersHorizontal, MapPin, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,6 +41,7 @@ const getData = async (): Promise<Destination[]> => {
 }
 
 export default function TravelList() {
+  const router = useRouter()
   const [days, setDays] = useState(1)
   const [budget, setBudget] = useState(0)
   const [items, setItems] = useState<Destination[]>([])
@@ -47,6 +50,7 @@ export default function TravelList() {
   const [filteredItems, setFilteredItems] = useState<Destination[]>([])
   const [loading, setLoading] = useState(true)
   const [affordable, setAffordable] = useState(false)
+  const [pendingId, setPendingId] = useState<string | null>(null)
 
   useEffect(() => {
     const getDataAsync = async () => {
@@ -219,8 +223,21 @@ export default function TravelList() {
               const maxPrice = minPrice + (item.price - item.foodPrice - item.hotelPrice)
 
               return (
-                <Link key={item._id} href={`/city/${item._id}`} className="group">
-                  <div className="h-full bg-card rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                <div
+                  key={item._id}
+                  className="group cursor-pointer"
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    if (pendingId) return
+                    router.push(`/city/${item._id}`)
+                  }}
+                >
+                  <div className="h-full bg-card rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative">
+                    {pendingId === item._id && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                        <div className="animate-spin h-8 w-8 border-4 border-white/80 border-t-transparent rounded-full" />
+                      </div>
+                    )}
                     <div className="relative h-56 overflow-hidden">
                       <img
                         src={item.image || "/placeholder.svg"}
@@ -268,7 +285,7 @@ export default function TravelList() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               )
             })}
           </div>
