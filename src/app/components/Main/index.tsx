@@ -1,147 +1,209 @@
-"use client";
-import React, { useEffect, useState, useCallback } from "react";
-import "./Main.css";
-import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
-require("dotenv").config();
+"use client"
+import { useEffect, useState, useCallback } from "react"
+import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api"
+import { X, MapPin, Sparkles } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+
 interface UserData {
-	lat: any;
-	lng: any;
-	prevState?: null;
+  lat: any
+  lng: any
+  prevState?: null
 }
-const Main = () => {
-	const containerStyle = {
-		width: "100%",
-		height: "100%",
-	};
 
-	const [selectedPlace, setSelectedPlace] = useState<UserData | null>(null);
-	const [selectedCity, setSelectedCity] = useState(null);
-	const [country, setCountry] = useState(null);
-	const [mapCenter, setMapCenter] = useState({ lat: 20, lng: 0 });
-	const [closed, setClosed] = useState(true);
-	const [modal, setModal] = useState(false);
+const MapView = () => {
+  const containerStyle = {
+    width: "100%",
+    height: "100%",
+  }
 
-	const handleClose = () => {
-		setClosed(!closed);
-	};
+  const [selectedPlace, setSelectedPlace] = useState<UserData | null>(null)
+  const [selectedCity, setSelectedCity] = useState(null)
+  const [country, setCountry] = useState(null)
+  const [mapCenter, setMapCenter] = useState({ lat: 20, lng: 0 })
+  const [showPopup, setShowPopup] = useState(false)
+  const [modal, setModal] = useState(false)
+  const [description, setDescription] = useState<string>("")
+  const [loadingDesc, setLoadingDesc] = useState(false)
+  const [errorDesc, setErrorDesc] = useState<string>("")
+  const [wantToGo, setWantToGo] = useState(false)
 
-	const handleModal = () => {
-		setModal(!modal);
-		setClosed(false);
-	};
+  // Load Google Maps script once; prevents duplicate loads during navigation
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string) || "",
+  })
 
-	const onMarkerDragEnd = useCallback(async (event: any) => {
-		setSelectedPlace({
-			lat: event.latLng.lat(),
-			lng: event.latLng.lng(),
-		});
-	}, []);
+  const handleClosePopup = () => {
+    setShowPopup(false)
+  }
 
-	useEffect(() => {
-		const fetchCity = async () => {
-			const url = await process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-			if (selectedPlace) {
-				const { lat, lng } = selectedPlace;
-				const response = await fetch(
-					`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${url}`
-				);
-				const data = await response.json();
-				if (data.results && data.results.length > 0) {
-					console.log(data.results[0]);
-					const city = data.results[0].plus_code?.compound_code?.substring(7);
-					console.log(city);
+  const handleModal = async () => {
+    const nextState = !modal
+    setModal(nextState)
+    setShowPopup(false)
+    if (!nextState) return
+    if (!country) return
+    setLoadingDesc(true)
+    setErrorDesc("")
+    setDescription("")
+    try {
+      const res = await fetch("/api/describe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedCity }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Failed to load")
+      setDescription(data.description || "")
+    } catch (e: any) {
+      setErrorDesc(e?.message || "Failed to load description")
+    } finally {
+      setLoadingDesc(false)
+    }
+  }
 
-					const country =
-						data.results[data.results.length - 1].address_components[0]
-							.long_name;
-					if (city) {
-						setSelectedCity(city);
-						setCountry(country);
-					}
-				}
-			}
-		};
+  const onMarkerDragEnd = useCallback(async (event: any) => {
+    setSelectedPlace({
+      lat: event.latLng.lat(),
+      lng: event.latLng.lng(),
+    })
+  }, [])
 
-		fetchCity();
-	}, [selectedPlace]);
+  useEffect(() => {
+    const fetchCity = async () => {
+      const url = await process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      if (selectedPlace) {
+        const { lat, lng } = selectedPlace
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${url}`,
+        )
+        const data = await response.json()
+        if (data.results && data.results.length > 0) {
+          const city = data.results[0].plus_code?.compound_code?.substring(7)
+          const country = data.results[data.results.length - 1].address_components[0].long_name
+          if (city) {
+            setSelectedCity(city)
+            setCountry(country)
+          }
+        }
+      }
+    }
 
-	const onMapClick = useCallback((event: any) => {
-		setSelectedPlace({
-			lat: event.latLng.lat(),
-			lng: event.latLng.lng(),
-		});
-		setMapCenter({
-			lat: event.latLng.lat(),
-			lng: event.latLng.lng(),
-		});
-		setClosed(true);
-	}, []);
+    fetchCity()
+  }, [selectedPlace])
 
-	return (
-		<>
-			<div
-				className={`main bg-blue-300 min-w-screen relative ${
-					modal ? "modal-open" : ""
-				}`}
-			>
-				<LoadScript
-					googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY + ""}
-				>
-					<GoogleMap
-						mapContainerStyle={containerStyle}
-						zoom={3}
-						center={mapCenter}
-						onClick={onMapClick}
-					>
-						{selectedPlace && (
-							<Marker
-								position={selectedPlace}
-								draggable={true}
-								onDragEnd={onMarkerDragEnd}
-							/>
-						)}
-					</GoogleMap>
-				</LoadScript>
-				{selectedCity && closed && (
-					<div className="city__wrapper absolute top-1/3 right-1/3 w-64 min-h-32 rounded-[20px] p-5 bg-[#93FF51] shadow-2xl text-[14px]">
-						<div className="city__wrapper__info flex justify-between items-center text-[19px]">
-							{selectedCity}
-							<span
-								className="city__wrapper__close text-[24px] cursor-pointer"
-								onClick={handleClose}
-							>
-								X
-							</span>
-						</div>
-						<div
-							className="city__wrapper__learn mt-4 underline cursor-pointer text-[18px]"
-							onClick={handleModal}
-						>
-							Learn More {"->"}
-						</div>
-					</div>
-				)}
-			</div>
-			{modal && (
-				<div className="absolute top-1/4 -translate-y-20 left-1/3 h-2/3  w-1/3 p-6 pt-3 rounded-3xl bg-green-300">
-					<span
-						className="text-[24px] cursor-pointer flex justify-end"
-						onClick={handleModal}
-					>
-						X
-					</span>
-					<div className="city__wrapper__info flex flex-col justify-between items-center text-[19px]">
-						<div className="mb-5">{`${selectedCity}`}</div>
-						<div className="city__descr mb-10">Coming soon...</div>
-						<div className="want flex self-start text-xl items-center">
-							I want to go here
-							<input type="checkbox" name="want" className="ml-4 h-5 w-5" />
-						</div>
-					</div>
-				</div>
-			)}
-		</>
-	);
-};
+  const onMapClick = useCallback((event: any) => {
+    setSelectedPlace({
+      lat: event.latLng.lat(),
+      lng: event.latLng.lng(),
+    })
+    setMapCenter({
+      lat: event.latLng.lat(),
+      lng: event.latLng.lng(),
+    })
+    setShowPopup(true)
+  }, [])
 
-export default Main;
+  return (
+    <>
+      <div className="relative w-full h-[calc(100vh-4rem)]">
+        {!isLoaded ? (
+          <div className="flex h-full items-center justify-center">
+            <Spinner className="h-8 w-8" />
+          </div>
+        ) : (
+          <GoogleMap mapContainerStyle={containerStyle} zoom={3} center={mapCenter} onClick={onMapClick}>
+            {selectedPlace && <Marker position={selectedPlace} draggable={true} onDragEnd={onMarkerDragEnd} />}
+          </GoogleMap>
+        )}
+
+        {selectedCity && showPopup && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-card border rounded-xl shadow-2xl p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <MapPin className="h-4 w-4" />
+                    <span>Выбранное место</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-balance">{selectedCity}</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClosePopup}
+                  className="h-8 w-8 rounded-full shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Закрыть</span>
+                </Button>
+              </div>
+
+              <Button onClick={handleModal} className="w-full gap-2" size="lg">
+                <Sparkles className="h-4 w-4" />
+                Узнать больше
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={modal} onOpenChange={setModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <MapPin className="h-6 w-6 text-primary" />
+              {selectedCity}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {loadingDesc && (
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <Spinner className="h-8 w-8" />
+                <p className="text-muted-foreground">Генерация описания...</p>
+              </div>
+            )}
+
+            {!loadingDesc && errorDesc && (
+              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-destructive text-sm">{errorDesc}</p>
+              </div>
+            )}
+
+            {!loadingDesc && !errorDesc && description && (
+              <div className="prose prose-sm max-w-none">
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">{description}</p>
+              </div>
+            )}
+
+            {!loadingDesc && !errorDesc && !description && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Описание пока недоступно</p>
+              </div>
+            )}
+
+            <div className="pt-4 border-t">
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                <Checkbox
+                  id="want-to-go"
+                  checked={wantToGo}
+                  onCheckedChange={(checked) => setWantToGo(checked as boolean)}
+                />
+                <Label htmlFor="want-to-go" className="text-base font-medium cursor-pointer flex-1">
+                  Я хочу посетить это место
+                </Label>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+export default MapView
