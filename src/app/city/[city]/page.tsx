@@ -230,7 +230,7 @@ export default function CityPage() {
                       </div>
                       <Button
                         variant="ghost"
-                        size="icon-sm"
+                        size="sm"
                         onClick={() => handleBlurButton(destination._id)}
                         className="text-muted-foreground hover:text-destructive"
                       >

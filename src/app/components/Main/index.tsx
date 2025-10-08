@@ -31,6 +31,12 @@ const MapView = () => {
   const [errorDesc, setErrorDesc] = useState<string>("")
   const [wantToGo, setWantToGo] = useState(false)
 
+  // Load Google Maps script once; prevents duplicate loads during navigation
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string) || "",
+  })
+
   const handleClosePopup = () => {
     setShowPopup(false)
   }
@@ -105,24 +111,15 @@ const MapView = () => {
   return (
     <>
       <div className="relative w-full h-[calc(100vh-4rem)]">
-        {(() => {
-          const { isLoaded } = useJsApiLoader({
-            id: "google-map-script",
-            googleMapsApiKey: (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string) || "",
-          })
-          if (!isLoaded) {
-            return (
-              <div className="flex h-full items-center justify-center">
-                <Spinner className="h-8 w-8" />
-              </div>
-            )
-          }
-          return (
-            <GoogleMap mapContainerStyle={containerStyle} zoom={3} center={mapCenter} onClick={onMapClick}>
-              {selectedPlace && <Marker position={selectedPlace} draggable={true} onDragEnd={onMarkerDragEnd} />}
-            </GoogleMap>
-          )
-        })()}
+        {!isLoaded ? (
+          <div className="flex h-full items-center justify-center">
+            <Spinner className="h-8 w-8" />
+          </div>
+        ) : (
+          <GoogleMap mapContainerStyle={containerStyle} zoom={3} center={mapCenter} onClick={onMapClick}>
+            {selectedPlace && <Marker position={selectedPlace} draggable={true} onDragEnd={onMarkerDragEnd} />}
+          </GoogleMap>
+        )}
 
         {selectedCity && showPopup && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 animate-in fade-in zoom-in-95 duration-200">

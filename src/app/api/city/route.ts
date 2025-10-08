@@ -2,14 +2,14 @@ import connectToMongo from "@/app/utils/connectMongo";
 import { NextRequest, NextResponse } from "next/server";
 import { cityModel } from "../../../../models/CityModel";
 
-export async function GET(req: NextRequest, res: NextResponse) {
-	connectToMongo();
+export async function GET(req: NextRequest) {
+	await connectToMongo();
 	const result = await cityModel.find({});
-	return await new Response(JSON.stringify(result));
+	return NextResponse.json(result);
 }
 
-export async function POST(req: NextRequest, res: NextResponse) {
-	connectToMongo();
+export async function POST(req: NextRequest) {
+	await connectToMongo();
 	const {
 		isMarked,
 		city,
@@ -33,5 +33,5 @@ export async function POST(req: NextRequest, res: NextResponse) {
 		hotelPrice,
 	});
 	await test.save();
-	return new Response(JSON.stringify(test));
+	return NextResponse.json(test);
 }
