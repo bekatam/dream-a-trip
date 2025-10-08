@@ -37,11 +37,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/deploym
 
 ## Environment variables
 
-Add a `.env.local` file in the project root with:
+Add a `.env` file in the project root with:
 
 ```bash
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
-NEXT_PUBLIC_GEMINI_API_KEY=your_NEXT_PUBLIC_GEMINI_API_KEY
+GOOGLE_MAPS_API_KEY=your_google_maps_key
+GEMINI_API_KEY=your_GEMINI_API_KEY
 ```
 
 Restart the dev server after editing env vars.

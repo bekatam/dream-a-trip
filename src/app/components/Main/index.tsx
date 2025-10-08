@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { useRouter } from "next/navigation"
 
 interface UserData {
   lat: any
@@ -30,6 +31,9 @@ const MapView = () => {
   const [loadingDesc, setLoadingDesc] = useState(false)
   const [errorDesc, setErrorDesc] = useState<string>("")
   const [wantToGo, setWantToGo] = useState(false)
+  const [navLoading, setNavLoading] = useState(false)
+  const [navError, setNavError] = useState<string>("")
+  const router = useRouter()
 
   // Load Google Maps script once; prevents duplicate loads during navigation
   const { isLoaded } = useJsApiLoader({
@@ -72,6 +76,38 @@ const MapView = () => {
       lng: event.latLng.lng(),
     })
   }, [])
+
+  const handleGoToCity = useCallback(async () => {
+    if (!selectedCity) return
+    setNavLoading(true)
+    setNavError("")
+    try {
+      // 1) Try find existing
+      const res = await fetch("/api/city", { cache: "no-store" })
+      if (!res.ok) throw new Error("Failed to load cities")
+      const data = await res.json()
+      let target = (data || []).find((c: any) => {
+        const city = String(c?.city || "")
+        return city.toLowerCase() === String(selectedCity).toLowerCase()
+      })
+      // 2) If not found, create
+      if (!target) {
+        const createRes = await fetch("/api/city/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ city: selectedCity, country: country || "", image: "" }),
+        })
+        const created = await createRes.json()
+        if (!createRes.ok) throw new Error(created?.error || "Failed to create city")
+        target = created
+      }
+      if (target?._id) router.push(`/city/${target._id}`)
+    } catch (e: any) {
+      setNavError(e?.message || "Ошибка навигации")
+    } finally {
+      setNavLoading(false)
+    }
+  }, [selectedCity, router])
 
   useEffect(() => {
     const fetchCity = async () => {
@@ -186,6 +222,20 @@ const MapView = () => {
                 <p className="text-muted-foreground">Описание пока недоступно</p>
               </div>
             )}
+
+          {!loadingDesc && (
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleGoToCity} disabled={navLoading} className="w-full gap-2" size="lg">
+                {navLoading ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                Перейти к городу
+              </Button>
+              {navError && (
+                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                  {navError}
+                </div>
+              )}
+            </div>
+          )}
 
             <div className="pt-4 border-t">
               <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">

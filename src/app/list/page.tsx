@@ -266,7 +266,7 @@ export default function TravelList() {
                     <div className="p-5 space-y-3">
                       <div>
                         <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">
-                          {item.city}
+                          {String(item.city).split(",")[0]}
                         </h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
