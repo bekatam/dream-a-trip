@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Selected city is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "NEXT_PUBLIC_GEMINI_API_KEY is not set" }, { status: 500 });
+      return NextResponse.json({ error: "GEMINI_API_KEY is not set" }, { status: 500 });
     }
 
     const prompt = `Сгенерируй ДАННЫЕ В СТРОГОМ JSON без комментариев и форматирования кода. 
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     // 1) Prefer Vertex Publisher REST with API key if provided
-    if (process.env.NEXT_PUBLIC_VERTEX_API_KEY) {
+    if (process.env.VERTEX_API_KEY) {
       const modelId = process.env.VERTEX_PUBLISHER_MODEL || "gemini-2.5-flash-lite";
-      const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${modelId}:generateContent?key=${encodeURIComponent(process.env.NEXT_PUBLIC_VERTEX_API_KEY)}`;
+      const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${modelId}:generateContent?key=${encodeURIComponent(process.env.VERTEX_API_KEY)}`;
       const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,9 +153,9 @@ export async function POST(req: NextRequest) {
         ? parsed.places
             .slice(0, 6)
             .map((p: any) => ({
-              name: typeof p?.name === "string" ? p.name : "",
+              name: typeof p?.name === "string" ? p.name : "Без названия",
               price: Number.isFinite(Number(p?.price)) ? Number(p.price) : 0,
-              link: typeof p?.link === "string" ? p.link : "",
+              link: (typeof p?.link === "string" && p.link.trim().length > 0) ? p.link : "#",
             }))
         : [],
       foodPrice: Number.isFinite(Number(parsed?.foodPrice)) ? Number(parsed.foodPrice) : 0,
@@ -184,7 +184,22 @@ export async function POST(req: NextRequest) {
           if (!Number(doc.hotelPrice) && Number.isFinite(Number(safe.hotelPrice))) {
             doc.hotelPrice = Number(safe.hotelPrice);
           }
-          if (needDescr || needDest || !Number(doc.foodPrice) || !Number(doc.hotelPrice)) {
+          // If no image, try Unsplash
+          if ((!doc.image || doc.image.trim().length === 0) && process.env.UNSPLASH_ACCESS_KEY) {
+            try {
+              const q = encodeURIComponent(`${doc.city}`);
+              const u = `https://api.unsplash.com/search/photos?query=${q}&orientation=landscape&per_page=1&client_id=${process.env.UNSPLASH_ACCESS_KEY}`;
+              const r = await fetch(u);
+              if (r.ok) {
+                const j: any = await r.json();
+                const first = j?.results?.[0];
+                const img = first?.urls?.regular || first?.urls?.small || "";
+                if (img) doc.image = img;
+              }
+            } catch {}
+          }
+
+          if (needDescr || needDest || !Number(doc.foodPrice) || !Number(doc.hotelPrice) || !doc.image) {
             await doc.save();
           }
         }
