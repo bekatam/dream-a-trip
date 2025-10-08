@@ -1,205 +1,279 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import "./List.css";
-import Link from "next/link";
-import { getData } from "../endpoints/axios";
+"use client"
 
-const List = () => {
-	const [days, setDays] = useState(1);
-	const [budget, setBudget] = useState(0);
-	const [items, setItems] = useState([
-		{
-			city: "",
-			price: budget,
-			image: "",
-			country: "",
-			_id: "",
-			foodPrice: 0,
-			hotelPrice: 0,
-		},
-	]);
-	const [selectedOption, setSelectedOption] = useState("option1");
-	const [search, setSearch] = useState("");
-	const [filteredItems, setFilteredItems] = useState([...items]);
-	const [loading, setLoading] = useState(true);
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { Search, SlidersHorizontal, MapPin, Calendar } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 
-	useEffect(() => {
-		const getDataAsync = async () => {
-			const data = await getData();
-			setItems(data);
-			setFilteredItems(data);
-			setLoading(false);
-		};
-		getDataAsync();
-	}, []);
+type Destination = {
+  city: string
+  price: number
+  image: string
+  country: string
+  _id: string
+  foodPrice: number
+  hotelPrice: number
+}
 
-	const handleKeyDown = (event: any) => {
-		if (event.key === "Enter") {
-			event.preventDefault();
-		}
-	};
+const getData = async (): Promise<Destination[]> => {
+  try {
+    const res = await fetch("/api/city", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data || []).map((item: any) => ({
+      _id: item._id,
+      city: item.city,
+      country: item.country,
+      image: item.image,
+      foodPrice: item.foodPrice,
+      hotelPrice: item.hotelPrice,
+      price: item.price,
+    }));
+  } catch {
+    return [];
+  }
+}
 
-	const handleType = (e: any) => {
-		const value = e.target.value;
-		setSearch(value);
-		let filtered = value
-			? items.filter((item) =>
-					(item.city + item.country).toLowerCase().includes(value.toLowerCase())
-			  )
-			: items;
-		if (affordable) {
-			filtered = filtered.filter(
-				(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
-			);
-		}
-		setFilteredItems(filtered);
-	};
+export default function TravelList() {
+  const [days, setDays] = useState(1)
+  const [budget, setBudget] = useState(0)
+  const [items, setItems] = useState<Destination[]>([])
+  const [selectedOption, setSelectedOption] = useState("default")
+  const [search, setSearch] = useState("")
+  const [filteredItems, setFilteredItems] = useState<Destination[]>([])
+  const [loading, setLoading] = useState(true)
+  const [affordable, setAffordable] = useState(false)
 
-	const handleOptionChange = (option: any) => {
-		setSelectedOption(option);
+  useEffect(() => {
+    const getDataAsync = async () => {
+      const data = await getData()
+      setItems(data)
+      setFilteredItems(data)
+      setLoading(false)
+    }
+    getDataAsync()
+  }, [])
 
-		if (option === "option1") {
-			if (affordable) {
-				const updItems = filteredItems.filter(
-					(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
-				);
-				setFilteredItems(updItems);
-			} else {
-				setFilteredItems([...filteredItems]);
-			}
-		} else if (option === "option2") {
-			const ascendingItems = [...filteredItems].sort(
-				(a, b) => a.foodPrice + a.hotelPrice - b.foodPrice - b.hotelPrice
-			);
-			setFilteredItems(ascendingItems);
-		} else if (option === "option3") {
-			const descendingItems = [...filteredItems].sort(
-				(a, b) => b.foodPrice + b.hotelPrice - a.foodPrice - a.hotelPrice
-			);
-			setFilteredItems(descendingItems);
-		}
-	};
+  useEffect(() => {
+    let filtered = search
+      ? items.filter((item) => (item.city + item.country).toLowerCase().includes(search.toLowerCase()))
+      : items
 
-	const [affordable, setAffordable] = useState(false);
+    if (affordable && budget > 0) {
+      filtered = filtered.filter((item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget)
+    }
 
-	const handleCheckboxChange = (event: any) => {
-		const isChecked = event.target.checked;
+    // Apply sorting
+    if (selectedOption === "asc") {
+      filtered = [...filtered].sort((a, b) => a.foodPrice + a.hotelPrice - (b.foodPrice + b.hotelPrice))
+    } else if (selectedOption === "desc") {
+      filtered = [...filtered].sort((a, b) => b.foodPrice + b.hotelPrice - (a.foodPrice + a.hotelPrice))
+    }
 
-		setAffordable(isChecked);
-		if (isChecked) {
-			const updItems = filteredItems.filter(
-				(item) => (item.foodPrice + item.hotelPrice) * days * 0.9 <= budget
-			);
-			setFilteredItems(updItems);
-		} else {
-			setFilteredItems(
-				items.filter((item) =>
-					(item.city + item.country)
-						.toLowerCase()
-						.includes(search.toLowerCase())
-				)
-			);
-		}
-	};
+    setFilteredItems(filtered)
+  }, [search, affordable, budget, days, selectedOption, items])
 
-	return (
-		<div className="list max-h-full bg-blue-300 pt-10 px-28 pb-20">
-			<div className="text-center text-black font-bold text-3xl">List</div>
-			<div className="list__options flex justify-center mt-10">
-				<textarea
-					placeholder="Поиск города"
-					className="h-10 resize-none w-1/3 outline-none border-none p-2 opacity-90"
-					onKeyDown={handleKeyDown}
-					onChange={handleType}
-					value={search}
-				></textarea>
-			</div>
-			<div className="flex justify-between">
-				<div className="flex flex-col gap-2">
-					<select
-						className="p-1 h-1/2"
-						value={selectedOption}
-						onChange={(e) => handleOptionChange(e.target.value)}
-					>
-						<option value="option1">По умолчанию</option>
-						<option value="option2">По возрастанию</option>
-						<option value="option3">По убыванию</option>
-					</select>
-					<div className="flex gap-4 items-center">
-						<label htmlFor="affordable">Доступно с моим бюджетом</label>
-						<input
-							type="checkbox"
-							name="affordable"
-							id="affordable"
-							checked={affordable}
-							onChange={handleCheckboxChange}
-							className="h-[20px] w-[20px]"
-						/>
-					</div>
-				</div>
-				<div className="flex flex-col gap-2">
-					<div className="flex gap-2 justify-between items-center">
-						<p>Бюджет, ₸: </p>
-						<input
-							type="number"
-							value={budget.toString()}
-							placeholder="Write your budget"
-							onChange={(e) => setBudget(Number(e.target.value))}
-							min={0}
-						/>
-					</div>
-					<div className="flex justify-between gap-2 items-center">
-						<p>Дней: </p>
-						<input
-							type="number"
-							value={days.toString()}
-							placeholder="Write days: "
-							onChange={(e) => setDays(Number(e.target.value))}
-							min={1}
-						/>
-					</div>
-				</div>
-			</div>
-			<div className="list__items grid grid-cols-4 gap-x-36 gap-y-10 mt-10">
-				{!loading ? (
-					filteredItems.map((item, index) => {
-						return (
-							<Link
-								href={`/city/${item._id}`}
-								key={index}
-								className={`col-span-1 h-[400px] transition-all duration-500 rounded-3xl cursor-pointer border-2 border-blue-300 hover:border-black ${
-									+budget > (item.foodPrice + item.hotelPrice) * days * 0.9
-										? "bg-green-300"
-										: budget > ((item.foodPrice + item.hotelPrice) * days) / 2
-										? "bg-yellow-300"
-										: "bg-red-300"
-								} `}
-							>
-								<img
-									alt="city"
-									src={item.image}
-									className="w-full rounded-tl-3xl rounded-tr-3xl h-[300px]"
-								/>
-								<div className="text-center text-2xl mt-2">{`${item.city}, ${item.country}`}</div>
-								<div className="text-center text-xl mt-1">
-									{`${(
-										(item.foodPrice + item.hotelPrice) *
-										days
-									).toLocaleString()} - ${(
-										(item.foodPrice + item.hotelPrice) * days +
-										(item.price - item.foodPrice - item.hotelPrice)
-									).toLocaleString()}`}{" "}
-									₸
-								</div>
-							</Link>
-						);
-					})
-				) : (
-					<p className="text-3xl">Loading...</p>
-				)}
-			</div>
-		</div>
-	);
-};
+  const getAffordabilityStatus = (item: Destination) => {
+    if (budget === 0) return "unknown"
+    const minCost = (item.foodPrice + item.hotelPrice) * days * 0.9
+    const midCost = (item.foodPrice + item.hotelPrice) * days
 
-export default List;
+    if (budget >= minCost) return "affordable"
+    if (budget >= midCost / 2) return "moderate"
+    return "expensive"
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-4 py-12 md:py-16">
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-balance">
+              Найдите идеальное направление
+            </h1>
+            <p className="text-lg text-muted-foreground text-pretty">
+              Исследуйте мир с учетом вашего бюджета и предпочтений
+            </p>
+
+            <div className="relative max-w-xl mx-auto">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Поиск города или страны..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-12 h-14 text-lg bg-background"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col lg:flex-row gap-6 mb-8 p-6 bg-card rounded-xl border">
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <SlidersHorizontal className="h-4 w-4" />
+              Фильтры
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="budget" className="text-sm font-medium">
+                  Бюджет (₸)
+                </Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  value={budget || ""}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                  placeholder="Введите бюджет"
+                  min={0}
+                  className="h-11"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="days" className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Количество дней
+                </Label>
+                <Input
+                  id="days"
+                  type="number"
+                  value={days}
+                  onChange={(e) => setDays(Math.max(1, Number(e.target.value)))}
+                  min={1}
+                  className="h-11"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sort" className="text-sm font-medium">
+                  Сортировка
+                </Label>
+                <Select value={selectedOption} onValueChange={setSelectedOption}>
+                  <SelectTrigger id="sort" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">По умолчанию</SelectItem>
+                    <SelectItem value="asc">По возрастанию цены</SelectItem>
+                    <SelectItem value="desc">По убыванию цены</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <Checkbox
+                id="affordable"
+                checked={affordable}
+                onCheckedChange={(checked) => setAffordable(checked as boolean)}
+              />
+              <Label htmlFor="affordable" className="text-sm font-medium cursor-pointer">
+                Показать только доступные по бюджету
+              </Label>
+            </div>
+          </div>
+
+          {budget > 0 && (
+            <div className="lg:w-64 p-4 bg-muted/50 rounded-lg space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Ваш бюджет</div>
+              <div className="text-2xl font-bold">{budget.toLocaleString()} ₸</div>
+              <div className="text-sm text-muted-foreground">
+                на {days} {days === 1 ? "день" : "дней"}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mb-6">
+          <p className="text-sm text-muted-foreground">
+            Найдено направлений: <span className="font-medium text-foreground">{filteredItems.length}</span>
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center space-y-4">
+              <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+              <p className="text-muted-foreground">Загрузка направлений...</p>
+            </div>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-20 space-y-4">
+            <MapPin className="h-16 w-16 text-muted-foreground mx-auto" />
+            <h3 className="text-xl font-semibold">Направления не найдены</h3>
+            <p className="text-muted-foreground">Попробуйте изменить параметры поиска или фильтры</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredItems.map((item) => {
+              const status = getAffordabilityStatus(item)
+              const minPrice = (item.foodPrice + item.hotelPrice) * days
+              const maxPrice = minPrice + (item.price - item.foodPrice - item.hotelPrice)
+
+              return (
+                <Link key={item._id} href={`/city/${item._id}`} className="group">
+                  <div className="h-full bg-card rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                    <div className="relative h-56 overflow-hidden">
+                      <img
+                        src={item.image || "/placeholder.svg"}
+                        alt={`${item.city}, ${item.country}`}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+
+                      {budget > 0 && (
+                        <div className="absolute top-3 right-3">
+                          {status === "affordable" && (
+                            <Badge className="bg-success/90 text-white border-0 backdrop-blur-sm">В бюджете</Badge>
+                          )}
+                          {status === "moderate" && (
+                            <Badge className="bg-warning/90 text-white border-0 backdrop-blur-sm">Частично</Badge>
+                          )}
+                          {status === "expensive" && (
+                            <Badge variant="secondary" className="bg-muted/90 backdrop-blur-sm">
+                              Дорого
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">
+                          {item.city}
+                        </h3>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {item.country}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="text-sm text-muted-foreground mb-1">Стоимость поездки</div>
+                        <div className="text-lg font-bold">
+                          {minPrice.toLocaleString()} - {maxPrice.toLocaleString()} ₸
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          на {days} {days === 1 ? "день" : "дней"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
