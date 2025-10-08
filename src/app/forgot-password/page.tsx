@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
             <CardContent className="space-y-4">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-900 leading-relaxed">
-                  Не получили письмо? Проверьте папку "Спам" или попробуйте отправить запрос снова через несколько
+                  Не получили письмо? Проверьте папку &quot;Спам&quot; или попробуйте отправить запрос снова через несколько
                   минут.
                 </p>
               </div>
