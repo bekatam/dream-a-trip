@@ -41,7 +41,7 @@ Add a `.env.local` file in the project root with:
 
 ```bash
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
-GEMINI_API_KEY=your_gemini_api_key
+NEXT_PUBLIC_GEMINI_API_KEY=your_NEXT_PUBLIC_GEMINI_API_KEY
 ```
 
 Restart the dev server after editing env vars.
