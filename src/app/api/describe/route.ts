@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Selected city is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "GEMINI_API_KEY is not set" }, { status: 500 });
+      return NextResponse.json({ error: "NEXT_PUBLIC_GEMINI_API_KEY is not set" }, { status: 500 });
     }
 
     const prompt = `Сгенерируй ДАННЫЕ В СТРОГОМ JSON без комментариев и форматирования кода. 
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     // 1) Prefer Vertex Publisher REST with API key if provided
-    if (process.env.VERTEX_API_KEY) {
+    if (process.env.NEXT_PUBLIC_VERTEX_API_KEY) {
       const modelId = process.env.VERTEX_PUBLISHER_MODEL || "gemini-2.5-flash-lite";
-      const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${modelId}:generateContent?key=${encodeURIComponent(process.env.VERTEX_API_KEY)}`;
+      const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${modelId}:generateContent?key=${encodeURIComponent(process.env.NEXT_PUBLIC_VERTEX_API_KEY)}`;
       const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
