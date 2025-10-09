@@ -58,7 +58,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-65px)] relative flex items-center justify-center px-4 overflow-hidden">
+    <div className="min-h-[calc(100vh-4rem)] relative flex items-start justify-center py-8 md:py-12 px-4 overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50" />
 
@@ -70,8 +70,8 @@ export default function SignUpPage() {
       {/* Sign Up Card */}
       <Card className="relative w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-xl">
         <CardHeader className="space-y-3 text-center pb-6">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <Plane className="w-8 h-8 text-white" />
+					<div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+						<Plane className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">Создать аккаунт</CardTitle>
           <CardDescription className="text-base">Начните планировать свои путешествия</CardDescription>

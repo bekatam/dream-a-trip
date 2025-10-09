@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-65px)] relative flex items-center justify-center px-4 overflow-hidden">
+    <div className="min-h-[calc(100dvh-64px)] relative flex items-center justify-center overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50" />
 
