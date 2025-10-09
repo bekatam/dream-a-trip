@@ -146,7 +146,7 @@ const MapView = () => {
 
   return (
     <>
-      <div className="relative w-full h-[calc(100vh-4rem)]">
+      <div className="relative w-full h-[calc(100vh-65px)]">
         {!isLoaded ? (
           <div className="flex h-full items-center justify-center">
             <Spinner className="h-8 w-8" />

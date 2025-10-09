@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import Nav from "@/app/components/Nav"
+import Providers from "@/app/providers"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -21,11 +22,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        {/* Wrapped Nav component and children in Suspense boundary */}
-        <Suspense fallback={<div>Loading...</div>}>
-          <Nav />
-          {children}
-        </Suspense>
+        {/* Wrapped with Session Provider */}
+        <Providers>
+          {/* Wrapped Nav component and children in Suspense boundary */}
+          <Suspense fallback={<div>Loading...</div>}>
+            <Nav />
+            {children}
+          </Suspense>
+        </Providers>
         <Analytics />
       </body>
     </html>

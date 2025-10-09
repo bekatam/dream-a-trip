@@ -2,12 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { useSession, signOut } from "next-auth/react"
 
 const navLinks = [
   { href: "/", label: "Карта", badge: "Pre-alpha" },
@@ -17,6 +18,8 @@ const navLinks = [
 export default function Nav() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { data: session } = useSession()
+  const router = useRouter()
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
@@ -68,11 +71,29 @@ export default function Nav() {
             </div>
           </div>
 
-          {/* Sign In Button - Desktop */}
-          <div className="hidden md:block">
-            <Button asChild variant="default" size="sm" className="gap-2">
-              <Link href="/signin">Войти</Link>
-            </Button>
+          {/* Auth - Desktop */}
+          <div className="hidden md:flex items-center gap-3">
+            {session?.user ? (
+              <>
+                <span className="text-sm text-muted-foreground">{session.user.email}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2 cursor-pointer"
+                  onClick={async () => {
+                    await signOut({ redirect: false })
+                    router.replace("/")
+                    router.refresh()
+                  }}
+                >
+                  Выйти
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="default" size="sm" className="gap-2">
+                <Link href="/signin">Войти</Link>
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu */}
@@ -114,11 +135,29 @@ export default function Nav() {
                   </Link>
                 ))}
                 <div className="mt-4 pt-4 border-t">
-                  <Button asChild className="w-full" size="lg">
-                    <Link href="/signin" onClick={() => setMobileOpen(false)}>
-                      Войти
-                    </Link>
-                  </Button>
+                  {session?.user ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="text-sm text-muted-foreground truncate">{session.user.email}</div>
+                      <Button
+                        className="w-full cursor-pointer"
+                        size="lg"
+                        onClick={async () => {
+                          setMobileOpen(false)
+                          await signOut({ redirect: false })
+                          router.replace("/")
+                          router.refresh()
+                        }}
+                      >
+                        Выйти
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button asChild className="w-full" size="lg">
+                      <Link href="/signin" onClick={() => setMobileOpen(false)}>
+                        Войти
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             </SheetContent>
