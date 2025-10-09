@@ -43,7 +43,7 @@ export default function SignInPage() {
       <Card className="w-full max-w-md relative shadow-2xl border-border/50 backdrop-blur-sm bg-card/95">
         <CardHeader className="space-y-4 text-center pb-8">
           {/* Logo */}
-          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center shadow-lg">
+        	<div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
             <Plane className="w-8 h-8 text-white" />
           </div>
 
@@ -111,7 +111,7 @@ export default function SignInPage() {
             {/* Submit Button */}
             <Button
               type="submit"
-              className="w-full h-11 text-base font-medium shadow-lg hover:shadow-xl transition-all"
+              className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg shadow-amber-500/30 transition-all duration-200"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -135,7 +135,12 @@ export default function SignInPage() {
 
           {/* Social Login Buttons */}
           <div className="grid grid-cols-1 gap-3">
-            <Button variant="outline" className="h-11 bg-transparent" type="button" onClick={() => signIn("google", { callbackUrl: "/" })}>
+            <Button 
+              variant="outline" 
+              className="h-11 bg-transparent" 
+              type="button" 
+              onClick={() => signIn("google", { callbackUrl: "/" })}
+            >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
