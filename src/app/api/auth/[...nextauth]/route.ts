@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs"
 import connectToMongo from "@/app/utils/connectMongo"
 import UserModel from "../../../../../models/UserModel"
 
-export const authOptions: AuthOptions = {
+const authOptions: AuthOptions = {
 	providers: [
 		Google({
 			clientId: process.env.GOOGLE_CLIENT_ID!,
