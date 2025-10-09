@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,7 @@ import { Mail, ArrowLeft, CheckCircle2, Plane } from "lucide-react"
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -23,10 +24,27 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(false)
     setEmailSent(true)
+    setCooldown(60)
+  }
+
+  useEffect(() => {
+    if (!emailSent || cooldown <= 0) return
+    const id = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000)
+    return () => clearInterval(id)
+  }, [emailSent, cooldown])
+
+  const handleResend = async () => {
+    if (cooldown > 0 || isLoading) return
+    setIsLoading(true)
+    // Simulate resend API call
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    setIsLoading(false)
+    setCooldown(60)
+    // остаёмся на этом же экране (emailSent = true)
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+    <div className="min-h-[calc(100vh-65px)] relative flex items-center justify-center px-4 overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50" />
 
@@ -111,17 +129,18 @@ export default function ForgotPasswordPage() {
             <CardContent className="space-y-4">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-900 leading-relaxed">
-                  Не получили письмо? Проверьте папку &quot;Спам&quot; или попробуйте отправить запрос снова через несколько
-                  минут.
+                  Не получили письмо? Проверьте папку &quot;Спам&quot; или попробуйте отправить запрос снова.
                 </p>
               </div>
 
               <Button
-                onClick={() => setEmailSent(false)}
+                type="button"
+                onClick={handleResend}
+                disabled={cooldown > 0 || isLoading}
                 variant="outline"
-                className="w-full h-11 bg-white/50 border-neutral-200 hover:bg-white hover:border-neutral-300"
+                className="w-full h-11 bg-white/50 border-neutral-200 hover:bg-black disabled:hover:bg-white/50 disabled:hover:text-inherit hover:text-white hover:border-neutral-300"
               >
-                Отправить снова
+                {cooldown > 0 ? `Отправить снова (${cooldown}s)` : "Отправить снова"}
               </Button>
             </CardContent>
 
