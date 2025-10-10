@@ -10,16 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { getData, type Destination } from "@/app/endpoints/axios"
+import { getData } from "@/app/endpoints/axios"
+import { type City } from "@/types"
 
 export default function TravelList() {
   const router = useRouter()
   const [days, setDays] = useState(1)
   const [budget, setBudget] = useState(0)
-  const [items, setItems] = useState<Destination[]>([])
+  const [items, setItems] = useState<City[]>([])
   const [selectedOption, setSelectedOption] = useState("default")
   const [search, setSearch] = useState("")
-  const [filteredItems, setFilteredItems] = useState<Destination[]>([])
+  const [filteredItems, setFilteredItems] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
   const [affordable, setAffordable] = useState(false)
   const [isRandomizing, setIsRandomizing] = useState(false)
@@ -53,7 +54,7 @@ export default function TravelList() {
     setFilteredItems(filtered)
   }, [search, affordable, budget, days, selectedOption, items])
 
-  const getAffordabilityStatus = (item: Destination) => {
+  const getAffordabilityStatus = (item: City) => {
     if (budget === 0) return "unknown"
     const minCost = (item.foodPrice + item.hotelPrice) * days * 0.9
     const midCost = (item.foodPrice + item.hotelPrice) * days

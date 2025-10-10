@@ -20,10 +20,11 @@ import {
   Plus,
   ArrowRight,
 } from "lucide-react"
-import { getData, type Destination } from "@/app/endpoints/axios"
+import { getData } from "@/app/endpoints/axios"
+import { type City } from "@/types"
 
 export default function ProfilePage() {
-  const [destinations, setDestinations] = useState<Destination[]>([])
+  const [destinations, setDestinations] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
 
   // Mock user data - in real app, this would come from auth context

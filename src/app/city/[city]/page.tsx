@@ -14,14 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-interface Destination {
-  name: string
-  price: number
-  link: string
-  isBlurred: boolean
-  _id: any
-}
+import { type Destination } from "@/types"
 
 interface Item {
   city: string
