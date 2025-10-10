@@ -1,4 +1,4 @@
-## The project will be devoted to the creation of a WEB-application "Dream a Trip", which is an interactive map that will allow the user to select a city on the map, read about this city, find out the sights and the average price for a trip for a certain number of days. Also, the system will allow you to add your own planned travel costs
+## The project will be devoted to the creation of a WEB-application "Travel App", which is an interactive map that will allow the user to select a city on the map, read about this city, find out the sights and the average price for a trip for a certain number of days. Also, the system will allow you to add your own planned travel costs
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
