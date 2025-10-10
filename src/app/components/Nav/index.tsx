@@ -1,25 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu } from "lucide-react"
+import { Menu, User, LogOut, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../../components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useSession, signOut } from "next-auth/react"
 
 const navLinks = [
-  { href: "/", label: "Карта", badge: "Pre-alpha" },
+  { href: "/", label: "Главная", badge: "Beta" },
+  { href: "/map", label: "Карта", badge: "Pre-alpha" },
   { href: "/list", label: "Список", badge: "Beta" },
 ]
 
 export default function Nav() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { data: session } = useSession()
+  const [isClient, setIsClient] = useState(false)
+  const { data: session, status } = useSession()
   const router = useRouter()
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
@@ -72,25 +79,45 @@ export default function Nav() {
           </div>
 
           {/* Auth - Desktop */}
-          <div className="hidden md:flex items-center gap-3">
-            {session?.user ? (
-              <>
-                <span className="text-sm text-muted-foreground">{session.user.email}</span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2 cursor-pointer"
-                  onClick={async () => {
-                    await signOut({ redirect: false })
-                    router.replace("/")
-                    router.refresh()
-                  }}
-                >
-                  Выйти
-                </Button>
-              </>
+          <div className="hidden md:flex items-center gap-3 w-48">
+            {!isClient ? (
+              <div className="w-20 h-8 bg-muted animate-pulse rounded" />
+            ) : status === "loading" ? (
+              <div className="w-20 h-8 bg-muted animate-pulse rounded" />
+            ) : session?.user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 ml-auto">
+                    <User className="h-4 w-4" />
+                    <span className="text-sm truncate max-w-32">
+                      {session.user.email}
+                    </span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Мой профиль
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      await signOut({ redirect: false })
+                      router.replace("/")
+                      router.refresh()
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Выйти
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <Button asChild variant="default" size="sm" className="gap-2">
+              <Button asChild variant="default" size="sm" className="gap-2 ml-auto">
                 <Link href="/signin">Войти</Link>
               </Button>
             )}
@@ -135,21 +162,41 @@ export default function Nav() {
                   </Link>
                 ))}
                 <div className="mt-4 pt-4 border-t">
-                  {session?.user ? (
+                  {!isClient ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="w-32 h-4 bg-muted animate-pulse rounded" />
+                      <div className="w-full h-10 bg-muted animate-pulse rounded" />
+                    </div>
+                  ) : status === "loading" ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="w-32 h-4 bg-muted animate-pulse rounded" />
+                      <div className="w-full h-10 bg-muted animate-pulse rounded" />
+                    </div>
+                  ) : session?.user ? (
                     <div className="flex flex-col gap-3">
                       <div className="text-sm text-muted-foreground truncate">{session.user.email}</div>
-                      <Button
-                        className="w-full cursor-pointer"
-                        size="lg"
-                        onClick={async () => {
-                          setMobileOpen(false)
-                          await signOut({ redirect: false })
-                          router.replace("/")
-                          router.refresh()
-                        }}
-                      >
-                        Выйти
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button asChild className="w-full" size="lg" variant="outline">
+                          <Link href="/profile" onClick={() => setMobileOpen(false)}>
+                            <User className="mr-2 h-4 w-4" />
+                            Мой профиль
+                          </Link>
+                        </Button>
+                        <Button
+                          className="w-full cursor-pointer"
+                          size="lg"
+                          variant="destructive"
+                          onClick={async () => {
+                            setMobileOpen(false)
+                            await signOut({ redirect: false })
+                            router.replace("/")
+                            router.refresh()
+                          }}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Выйти
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <Button asChild className="w-full" size="lg">
