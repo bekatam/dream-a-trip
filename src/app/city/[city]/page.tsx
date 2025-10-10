@@ -3,24 +3,18 @@
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { getData } from "@/app/endpoints/axios"
 import axios from "axios"
 import mongoose from "mongoose"
-import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft } from "lucide-react"
+import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft, Heart } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-interface Destination {
-  name: string
-  price: number
-  link: string
-  isBlurred: boolean
-  _id: any
-}
+import { type Destination } from "@/types"
 
 interface Item {
   city: string
@@ -36,6 +30,8 @@ interface Item {
 export default function CityPage() {
   const pathname = usePathname().substring(6)
   const [loading, setLoading] = useState(true)
+  const { data: session, status } = useSession()
+  const [isFavorite, setIsFavorite] = useState(false)
 
   const [items, setFilteredItems] = useState<Item[]>([
     {
@@ -67,19 +63,25 @@ export default function CityPage() {
       // Fetch AI-generated data (description, places, prices)
       try {
         // prevent duplicate calls in React Strict Mode and when data already present
-        const alreadyHasAiData = !!filtered[0] &&
-          typeof filtered[0].descr === "string" && filtered[0].descr.trim().length > 0 &&
-          Array.isArray(filtered[0].destinations) && filtered[0].destinations.length > 0
+        const alreadyHasAiData =
+          !!filtered[0] &&
+          typeof filtered[0].descr === "string" &&
+          filtered[0].descr.trim().length > 0 &&
+          Array.isArray(filtered[0].destinations) &&
+          filtered[0].destinations.length > 0
 
         // per-pathname guard
-        const aiOnceKeyRef = (aiOnceRef.current as any) as { key?: string }
+        const aiOnceKeyRef = aiOnceRef.current as any as { key?: string }
         if (alreadyHasAiData || aiOnceKeyRef.key === pathname) {
           setLoading(false)
           return
         }
         aiOnceKeyRef.key = pathname
 
-        const aiRes = await axios.post("/api/describe", { selectedCity: filtered[0]?.city || "", cityId: filtered[0]?._id })
+        const aiRes = await axios.post("/api/describe", {
+          selectedCity: filtered[0]?.city || "",
+          cityId: filtered[0]?._id,
+        })
         const { description, places, foodPrice, hotelPrice } = aiRes.data || {}
 
         const aiDestinations = Array.isArray(places)
@@ -110,6 +112,32 @@ export default function CityPage() {
     getDataAsync()
   }, [pathname])
 
+  // Check favorite status and load budget when session is available
+  useEffect(() => {
+    const checkFavoriteStatusAndLoadBudget = async () => {
+      if (session?.user) {
+        try {
+          // Проверяем статус избранного
+          console.log("Проверяем избранное для города:", pathname)
+          const favoriteResponse = await axios.get(`/api/favorites/${pathname}`)
+          setIsFavorite(favoriteResponse.data.isFavorite)
+          
+          // Загружаем сохраненный бюджет
+          await loadBudget()
+        } catch (error) {
+          console.error("Ошибка при загрузке данных пользователя:", error)
+          // Если ошибка 404, возможно API endpoint не существует
+          if (error && typeof error === 'object' && 'response' in error && 
+              error.response && typeof error.response === 'object' && 
+              'status' in error.response && error.response.status === 404) {
+            console.log("API endpoint не найден, возможно сервер не перезапущен")
+          }
+        }
+      }
+    }
+    checkFavoriteStatusAndLoadBudget()
+  }, [session, pathname])
+
   // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
   const aiOnceRef = useRef<{ key?: string }>({})
 
@@ -139,6 +167,13 @@ export default function CityPage() {
       })
       return updatedItems
     })
+    
+    // Автоматически сохраняем бюджет после изменения
+    setTimeout(() => {
+      if (session?.user) {
+        saveBudget()
+      }
+    }, 100)
   }
 
   useEffect(() => {
@@ -178,6 +213,71 @@ export default function CityPage() {
     }
     setShopName("")
     setShopPrice(0)
+    
+    // Автоматически сохраняем бюджет после добавления расхода
+    setTimeout(() => {
+      if (session?.user) {
+        saveBudget()
+      }
+    }, 100)
+  }
+
+  const handleToggleFavorite = async () => {
+    if (!session?.user) return
+    
+    try {
+      if (isFavorite) {
+        // Удалить из избранного
+        await axios.delete(`/api/favorites/${pathname}`)
+        setIsFavorite(false)
+      } else {
+        // Добавить в избранное
+        await axios.post(`/api/favorites/${pathname}`)
+        setIsFavorite(true)
+      }
+    } catch (error) {
+      console.error("Ошибка при работе с избранным:", error)
+    }
+  }
+
+  const saveBudget = async () => {
+    if (!session?.user) return
+    
+    try {
+      const budgetData = {
+        destinations: items[0].destinations,
+        foodPrice: items[0].foodPrice,
+        hotelPrice: items[0].hotelPrice,
+        totalPrice: items[0].price
+      }
+      
+      await axios.post(`/api/budget/${pathname}`, budgetData)
+    } catch (error) {
+      console.error("Ошибка при сохранении бюджета:", error)
+    }
+  }
+
+  const loadBudget = async () => {
+    if (!session?.user) return
+    
+    try {
+      console.log("Загружаем бюджет для города:", pathname)
+      const response = await axios.get(`/api/budget/${pathname}`)
+      const budget = response.data.budget
+      
+      if (budget) {
+        setFilteredItems([{
+          ...items[0],
+          destinations: budget.destinations,
+          foodPrice: budget.foodPrice,
+          hotelPrice: budget.hotelPrice,
+          price: budget.totalPrice
+        }])
+      }
+    } catch (error) {
+      console.error("Ошибка при загрузке бюджета:", error)
+      // Если API недоступен, просто продолжаем без загрузки сохраненного бюджета
+    }
   }
 
   if (loading) {
@@ -215,7 +315,24 @@ export default function CityPage() {
               <MapPin className="h-5 w-5" />
               <span className="text-lg">{item.country}</span>
             </div>
-            <h1 className="text-5xl font-bold text-white mb-4">{item.city}</h1>
+            <div className="flex items-center gap-4 mb-4 justify-between">
+              <h1 className="text-5xl font-bold text-white">{item.city}</h1>
+              {session?.user && (
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={handleToggleFavorite}
+                  className={`backdrop-blur-sm border transition-all duration-200 px-4 py-2 ${
+                    isFavorite 
+                      ? "bg-red-500 text-white border-red-400 hover:bg-red-600 shadow-lg shadow-red-500/25" 
+                      : "bg-white/10 text-white border-white/20 hover:bg-white/20 hover:border-white/30"
+                  }`}
+                >
+                  {isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+                  <Heart className={`h-6 w-6 ${isFavorite ? "fill-current" : ""}`} />
+                </Button>
+              )}
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-white/80 text-lg">Общая стоимость:</span>
               <span className="text-4xl font-bold text-white">{item.price.toLocaleString()} ₸</span>
@@ -288,56 +405,64 @@ export default function CityPage() {
             </Card>
 
             {/* Add Custom Expense Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Добавить свои расходы</CardTitle>
-                <CardDescription>Добавьте планируемые покупки для расчета бюджета</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleFormSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="shop_name">Назначение</Label>
-                      <Input
-                        type="text"
-                        id="shop_name"
-                        placeholder="Купить сувениры для мамы..."
-                        value={shopName}
-                        onChange={(e) => setShopName(e.target.value)}
-                        required
-                      />
+            {session?.user ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Добавить свои расходы</CardTitle>
+                  <CardDescription>Добавьте планируемые покупки для расчета бюджета</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleFormSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="shop_name">Назначение</Label>
+                        <Input
+                          type="text"
+                          id="shop_name"
+                          placeholder="Купить сувениры для мамы..."
+                          value={shopName}
+                          onChange={(e) => setShopName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="shop_price">Цена (₸)</Label>
+                        <Input
+                          type="number"
+                          id="shop_price"
+                          placeholder="1000"
+                          value={shopPrice || ""}
+                          onChange={(e) => setShopPrice(Number.parseInt(e.target.value) || 0)}
+                          min={0}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shop_price">Цена (₸)</Label>
-                      <Input
-                        type="number"
-                        id="shop_price"
-                        placeholder="1000"
-                        value={shopPrice || ""}
-                        onChange={(e) => setShopPrice(Number.parseInt(e.target.value) || 0)}
-                        min={0}
-                        required
-                      />
-                    </div>
+                    <Button type="submit" className="w-full md:w-auto">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Добавить расход
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Добавить свои расходы</CardTitle>
+                  <CardDescription>Войдите в аккаунт, чтобы добавлять собственные расходы</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center space-y-4">
+                    <p className="text-muted-foreground">
+                      Для добавления собственных расходов необходимо войти в аккаунт
+                    </p>
+                    <Button asChild className="w-full md:w-auto">
+                      <Link href="/signin">Войти в аккаунт</Link>
+                    </Button>
                   </div>
-                  <Button type="submit" className="w-full md:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Добавить расход
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Beta Notice */}
-            <Card className="border-warning/50 bg-warning/5">
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Обратите внимание:</strong> Просьба добавлять только проверенные места. Если добавляете свои
-                  покупки, можете высчитать, сохранить себе бюджет и удалить, так как это бета-версия и авторизация пока
-                  недоступна.
-                </p>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -365,9 +490,20 @@ export default function CityPage() {
                 </div>
 
                 <div className="pt-6 border-t">
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
-                    <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
+                  <div className="text-center space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
+                      <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
+                    </div>
+                    {session?.user && (
+                      <Button 
+                        onClick={saveBudget}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        Сохранить бюджет
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

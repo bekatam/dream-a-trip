@@ -1,56 +1,29 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import axios from "axios"
-import { Search, SlidersHorizontal, MapPin, Calendar } from "lucide-react"
+import Link from "next/link"
+import { Search, SlidersHorizontal, MapPin, Calendar, Dices } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-
-type Destination = {
-  city: string
-  price: number
-  image: string
-  country: string
-  _id: string
-  foodPrice: number
-  hotelPrice: number
-}
-
-const getData = async (): Promise<Destination[]> => {
-  try {
-    const res = await fetch("/api/city", { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data || []).map((item: any) => ({
-      _id: item._id,
-      city: item.city,
-      country: item.country,
-      image: item.image,
-      foodPrice: item.foodPrice,
-      hotelPrice: item.hotelPrice,
-      price: item.price,
-    }));
-  } catch {
-    return [];
-  }
-}
+import { Button } from "@/components/ui/button"
+import { getData } from "@/app/endpoints/axios"
+import { type City } from "@/types"
 
 export default function TravelList() {
   const router = useRouter()
   const [days, setDays] = useState(1)
   const [budget, setBudget] = useState(0)
-  const [items, setItems] = useState<Destination[]>([])
+  const [items, setItems] = useState<City[]>([])
   const [selectedOption, setSelectedOption] = useState("default")
   const [search, setSearch] = useState("")
-  const [filteredItems, setFilteredItems] = useState<Destination[]>([])
+  const [filteredItems, setFilteredItems] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
   const [affordable, setAffordable] = useState(false)
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [isRandomizing, setIsRandomizing] = useState(false)
 
   useEffect(() => {
     const getDataAsync = async () => {
@@ -81,7 +54,7 @@ export default function TravelList() {
     setFilteredItems(filtered)
   }, [search, affordable, budget, days, selectedOption, items])
 
-  const getAffordabilityStatus = (item: Destination) => {
+  const getAffordabilityStatus = (item: City) => {
     if (budget === 0) return "unknown"
     const minCost = (item.foodPrice + item.hotelPrice) * days * 0.9
     const midCost = (item.foodPrice + item.hotelPrice) * days
@@ -89,6 +62,19 @@ export default function TravelList() {
     if (budget >= minCost) return "affordable"
     if (budget >= midCost / 2) return "moderate"
     return "expensive"
+  }
+
+  const handleRandomTravel = async () => {
+    setIsRandomizing(true)
+    try {
+      const destinations = items.length > 0 ? items : await getData()
+      const randomIndex = Math.floor(Math.random() * destinations.length)
+      const randomDestination = destinations[randomIndex]
+      router.push(`/city/${randomDestination._id}`)
+    } catch (error) {
+      console.error("Error selecting random destination:", error)
+      setIsRandomizing(false)
+    }
   }
 
   return (
@@ -120,9 +106,31 @@ export default function TravelList() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-6 mb-8 p-6 bg-card rounded-xl border">
           <div className="flex-1 space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <SlidersHorizontal className="h-4 w-4" />
-              Фильтры
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <SlidersHorizontal className="h-4 w-4" />
+                Фильтры
+              </div>
+
+              <Button
+                onClick={handleRandomTravel}
+                disabled={isRandomizing || loading}
+                variant="outline"
+                size="sm"
+                className="border-amber-200 hover:border-amber-300 hover:bg-amber-50 bg-transparent hover:text-amber-600"
+              >
+                {isRandomizing ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                    Выбираем...
+                  </>
+                ) : (
+                  <>
+                    <Dices className="h-4 w-4 mr-2" />
+                    Случайное направление
+                  </>
+                )}
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -223,21 +231,8 @@ export default function TravelList() {
               const maxPrice = minPrice + (item.price - item.foodPrice - item.hotelPrice)
 
               return (
-                <div
-                  key={item._id}
-                  className="group cursor-pointer"
-                  onClick={async (e) => {
-                    e.preventDefault()
-                    if (pendingId) return
-                    router.push(`/city/${item._id}`)
-                  }}
-                >
-                  <div className="h-full bg-card rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative">
-                    {pendingId === item._id && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-                        <div className="animate-spin h-8 w-8 border-4 border-white/80 border-t-transparent rounded-full" />
-                      </div>
-                    )}
+                <Link key={item._id} href={`/city/${item._id}`} className="group">
+                  <div className="h-full bg-card rounded-xl border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                     <div className="relative h-56 overflow-hidden">
                       <img
                         src={item.image || "/placeholder.svg"}
@@ -266,7 +261,7 @@ export default function TravelList() {
                     <div className="p-5 space-y-3">
                       <div>
                         <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">
-                          {String(item.city).split(",")[0]}
+                          {item.city}
                         </h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
@@ -285,7 +280,7 @@ export default function TravelList() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>

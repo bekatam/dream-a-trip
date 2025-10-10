@@ -7,6 +7,24 @@ const UserSchema = new Schema(
 		password: { type: String },
 		image: { type: String },
 		provider: { type: String },
+		favorites: { type: [String], default: [] },
+		budgets: { 
+			type: Map, 
+			of: {
+				destinations: [{
+					name: String,
+					price: Number,
+					link: String,
+					isBlurred: Boolean,
+					_id: String
+				}],
+				foodPrice: Number,
+				hotelPrice: Number,
+				totalPrice: Number,
+				lastUpdated: { type: Date, default: Date.now }
+			},
+			default: new Map()
+		},
 	},
 	{ timestamps: true }
 )
