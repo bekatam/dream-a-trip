@@ -8,25 +8,21 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  MapPin,
-  Heart,
-  Wallet,
-  Calendar,
-  TrendingUp,
-  Globe,
-  Settings,
-  Edit,
-  Trash2,
-  Plus,
-  ArrowRight,
-} from "lucide-react"
+import { MapPin, Heart, Wallet, Calendar, Globe, Settings, Edit, Plus, ArrowRight, Trash2, TrendingUp } from "lucide-react"
 import { getData } from "@/app/endpoints/axios"
-import { type City } from "@/types"
+import type { City } from "@/types"
 
 export default function ProfilePage() {
   const { data: session } = useSession()
@@ -36,21 +32,21 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [favoritesLoading, setFavoritesLoading] = useState(true)
   const [budgetsLoading, setBudgetsLoading] = useState(true)
-  
+
   // Dialog states
   const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [editSettingsOpen, setEditSettingsOpen] = useState(false)
-  
+
   // Form states
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
-    avatar: ""
+    avatar: "",
   })
   const [settingsForm, setSettingsForm] = useState({
     currency: "KZT",
     language: "ru",
-    notifications: true
+    notifications: true,
   })
   const [isUpdating, setIsUpdating] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
@@ -63,18 +59,19 @@ export default function ProfilePage() {
     memberSince: "Недавно", // TODO: Add createdAt to user session
   }
 
-
   // Calculate stats from real data
   const budgetEntries = Object.values(budgets)
   const totalBudgetSpent = budgetEntries.reduce((sum, budget) => sum + (budget.totalPrice || 0), 0)
-  
+
   // Get unique countries from budgets
-  const countriesFromBudgets = budgetEntries.map((budget, index) => {
-    const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
-    const city = destinations.find(dest => dest._id === cityId)
-    return city?.country
-  }).filter(Boolean)
-  
+  const countriesFromBudgets = budgetEntries
+    .map((budget, index) => {
+      const cityId = Object.keys(budgets).find((key) => budgets[key] === budget)
+      const city = destinations.find((dest) => dest._id === cityId)
+      return city?.country
+    })
+    .filter(Boolean)
+
   const stats = {
     totalTrips: budgetEntries.length,
     totalSpent: totalBudgetSpent,
@@ -111,11 +108,13 @@ export default function ProfilePage() {
         const settingsResponse = await fetch("/api/settings")
         if (settingsResponse.ok) {
           const settingsData = await settingsResponse.json()
-          setSettingsForm(settingsData.settings || {
-            currency: "KZT",
-            language: "ru",
-            notifications: true
-          })
+          setSettingsForm(
+            settingsData.settings || {
+              currency: "KZT",
+              language: "ru",
+              notifications: true,
+            },
+          )
         }
       } catch (error) {
         console.error("Ошибка при загрузке данных:", error)
@@ -136,7 +135,7 @@ export default function ProfilePage() {
       setProfileForm({
         name: session.user.name || "",
         email: session.user.email || "",
-        avatar: session.user.image || ""
+        avatar: session.user.image || "",
       })
     }
   }, [session])
@@ -149,7 +148,7 @@ export default function ProfilePage() {
       const response = await fetch(`/api/favorites/${cityId}`, {
         method: "DELETE",
       })
-      
+
       if (response.ok) {
         setFavorites(favorites.filter((id) => id !== cityId))
       }
@@ -169,7 +168,7 @@ export default function ProfilePage() {
         },
         body: JSON.stringify(profileForm),
       })
-      
+
       if (response.ok) {
         setEditProfileOpen(false)
         setShowSuccessMessage(true)
@@ -197,7 +196,7 @@ export default function ProfilePage() {
         },
         body: JSON.stringify(settingsForm),
       })
-      
+
       if (response.ok) {
         setEditSettingsOpen(false)
         setShowSuccessMessage(true)
@@ -264,57 +263,68 @@ export default function ProfilePage() {
                       Редактировать
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Редактировать профиль</DialogTitle>
-                      <DialogDescription>
-                        Внесите изменения в информацию о вашем профиле.
+                  <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader className="space-y-3">
+                      <DialogTitle className="text-2xl">Редактировать профиль</DialogTitle>
+                      <DialogDescription className="text-base">
+                        Внесите изменения в информацию о вашем профиле. Все поля обязательны для заполнения.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">
+                    <div className="space-y-6 py-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-sm font-medium">
                           Имя
                         </Label>
                         <Input
                           id="name"
                           value={profileForm.name}
-                          onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                          className="col-span-3"
+                          onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                          placeholder="Введите ваше имя"
+                          className="h-11"
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="email" className="text-right">
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-sm font-medium">
                           Email
                         </Label>
                         <Input
                           id="email"
                           type="email"
                           value={profileForm.email}
-                          onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                          className="col-span-3"
+                          onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                          placeholder="your@email.com"
+                          className="h-11"
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="avatar" className="text-right">
-                          Аватар
+                      <div className="space-y-2">
+                        <Label htmlFor="avatar" className="text-sm font-medium">
+                          URL аватара
                         </Label>
                         <Input
                           id="avatar"
                           value={profileForm.avatar}
-                          onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})}
-                          className="col-span-3"
-                          placeholder="URL изображения"
+                          onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
+                          placeholder="https://example.com/avatar.jpg"
+                          className="h-11"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Вставьте ссылку на изображение для вашего аватара
+                        </p>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button 
-                        type="submit" 
-                        onClick={updateProfile}
-                        disabled={isUpdating}
-                      >
-                        {isUpdating ? "Сохранение..." : "Сохранить изменения"}
+                    <DialogFooter className="gap-2 sm:gap-0">
+                      <Button variant="outline" onClick={() => setEditProfileOpen(false)} disabled={isUpdating}>
+                        Отмена
+                      </Button>
+                      <Button onClick={updateProfile} disabled={isUpdating} className="min-w-[120px]">
+                        {isUpdating ? (
+                          <span className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Сохранение...
+                          </span>
+                        ) : (
+                          "Сохранить"
+                        )}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -679,67 +689,13 @@ export default function ProfilePage() {
                     <p className="text-sm font-medium mb-1">Email</p>
                     <p className="text-muted-foreground">{user.email}</p>
                   </div>
-                  <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full bg-transparent">
-                        Редактировать профиль
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Редактировать профиль</DialogTitle>
-                        <DialogDescription>
-                          Внесите изменения в информацию о вашем профиле.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="name" className="text-right">
-                            Имя
-                          </Label>
-                          <Input
-                            id="name"
-                            value={profileForm.name}
-                            onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                            className="col-span-3"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="email" className="text-right">
-                            Email
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={profileForm.email}
-                            onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                            className="col-span-3"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="avatar" className="text-right">
-                            Аватар
-                          </Label>
-                          <Input
-                            id="avatar"
-                            value={profileForm.avatar}
-                            onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})}
-                            className="col-span-3"
-                            placeholder="URL изображения"
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button 
-                          type="submit" 
-                          onClick={updateProfile}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating ? "Сохранение..." : "Сохранить изменения"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    variant="outline" 
+                    className="w-full bg-transparent"
+                    onClick={() => setEditProfileOpen(true)}
+                  >
+                    Редактировать профиль
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -752,18 +708,27 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-medium mb-1">Валюта</p>
                     <p className="text-muted-foreground">
-                      {settingsForm.currency === "KZT" ? "Тенге (₸)" :
-                       settingsForm.currency === "USD" ? "Доллар ($)" :
-                       settingsForm.currency === "EUR" ? "Евро (€)" :
-                       settingsForm.currency === "RUB" ? "Рубль (₽)" : "Тенге (₸)"}
+                      {settingsForm.currency === "KZT"
+                        ? "Тенге (₸)"
+                        : settingsForm.currency === "USD"
+                          ? "Доллар ($)"
+                          : settingsForm.currency === "EUR"
+                            ? "Евро (€)"
+                            : settingsForm.currency === "RUB"
+                              ? "Рубль (₽)"
+                              : "Тенге (₸)"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Язык</p>
                     <p className="text-muted-foreground">
-                      {settingsForm.language === "ru" ? "Русский" :
-                       settingsForm.language === "en" ? "English" :
-                       settingsForm.language === "kk" ? "Қазақша" : "Русский"}
+                      {settingsForm.language === "ru"
+                        ? "Русский"
+                        : settingsForm.language === "en"
+                          ? "English"
+                          : settingsForm.language === "kk"
+                            ? "Қазақша"
+                            : "Русский"}
                     </p>
                   </div>
                   <Dialog open={editSettingsOpen} onOpenChange={setEditSettingsOpen}>
@@ -772,23 +737,23 @@ export default function ProfilePage() {
                         Изменить настройки
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Настройки путешествий</DialogTitle>
-                        <DialogDescription>
-                          Настройте параметры для ваших путешествий.
+                    <DialogContent className="sm:max-w-[480px]">
+                      <DialogHeader className="space-y-3">
+                        <DialogTitle className="text-2xl">Настройки путешествий</DialogTitle>
+                        <DialogDescription className="text-base">
+                          Настройте параметры для ваших путешествий и персонализируйте опыт использования.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="currency" className="text-right">
+                      <div className="space-y-6 py-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="currency" className="text-sm font-medium">
                             Валюта
                           </Label>
-                          <Select 
-                            value={settingsForm.currency} 
-                            onValueChange={(value) => setSettingsForm({...settingsForm, currency: value})}
+                          <Select
+                            value={settingsForm.currency}
+                            onValueChange={(value) => setSettingsForm({ ...settingsForm, currency: value })}
                           >
-                            <SelectTrigger className="col-span-3">
+                            <SelectTrigger id="currency" className="h-11">
                               <SelectValue placeholder="Выберите валюту" />
                             </SelectTrigger>
                             <SelectContent>
@@ -798,16 +763,17 @@ export default function ProfilePage() {
                               <SelectItem value="RUB">Рубль (₽)</SelectItem>
                             </SelectContent>
                           </Select>
+                          <p className="text-xs text-muted-foreground">Выберите валюту для отображения цен</p>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="language" className="text-right">
-                            Язык
+                        <div className="space-y-2">
+                          <Label htmlFor="language" className="text-sm font-medium">
+                            Язык интерфейса
                           </Label>
-                          <Select 
-                            value={settingsForm.language} 
-                            onValueChange={(value) => setSettingsForm({...settingsForm, language: value})}
+                          <Select
+                            value={settingsForm.language}
+                            onValueChange={(value) => setSettingsForm({ ...settingsForm, language: value })}
                           >
-                            <SelectTrigger className="col-span-3">
+                            <SelectTrigger id="language" className="h-11">
                               <SelectValue placeholder="Выберите язык" />
                             </SelectTrigger>
                             <SelectContent>
@@ -816,31 +782,42 @@ export default function ProfilePage() {
                               <SelectItem value="kk">Қазақша</SelectItem>
                             </SelectContent>
                           </Select>
+                          <p className="text-xs text-muted-foreground">Язык будет применен после сохранения</p>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="notifications" className="text-right">
-                            Уведомления
-                          </Label>
-                          <div className="col-span-3">
-                            <label className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                checked={settingsForm.notifications}
-                                onChange={(e) => setSettingsForm({...settingsForm, notifications: e.target.checked})}
-                                className="rounded"
-                              />
-                              <span className="text-sm">Получать уведомления о новых предложениях</span>
-                            </label>
+                        <div className="space-y-3 pt-2">
+                          <Label className="text-sm font-medium">Уведомления</Label>
+                          <div className="flex items-start space-x-3 rounded-lg border p-4">
+                            <input
+                              type="checkbox"
+                              id="notifications"
+                              checked={settingsForm.notifications}
+                              onChange={(e) => setSettingsForm({ ...settingsForm, notifications: e.target.checked })}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                            />
+                            <div className="flex-1">
+                              <label htmlFor="notifications" className="text-sm font-medium cursor-pointer">
+                                Получать уведомления о новых предложениях
+                              </label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Мы будем отправлять вам информацию о специальных предложениях и скидках
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button 
-                          type="submit" 
-                          onClick={updateSettings}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating ? "Сохранение..." : "Сохранить настройки"}
+                      <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setEditSettingsOpen(false)} disabled={isUpdating}>
+                          Отмена
+                        </Button>
+                        <Button onClick={updateSettings} disabled={isUpdating} className="min-w-[120px]">
+                          {isUpdating ? (
+                            <span className="flex items-center gap-2">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Сохранение...
+                            </span>
+                          ) : (
+                            "Сохранить"
+                          )}
                         </Button>
                       </DialogFooter>
                     </DialogContent>

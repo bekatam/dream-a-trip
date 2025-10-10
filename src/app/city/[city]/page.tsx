@@ -495,15 +495,6 @@ export default function CityPage() {
                       <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
                       <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
                     </div>
-                    {session?.user && (
-                      <Button 
-                        onClick={saveBudget}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        Сохранить бюджет
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardContent>
