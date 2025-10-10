@@ -18,7 +18,7 @@ import {
   Heart,
   Dices,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getData } from "@/app/endpoints/axios"
 
@@ -112,8 +112,15 @@ const stats = [
 export default function AboutPage() {
   const router = useRouter()
   const [isRandomizing, setIsRandomizing] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleRandomTravel = async () => {
+    if (!isClient) return
+    
     setIsRandomizing(true)
     try {
       const destinations = await getData()
@@ -167,7 +174,7 @@ export default function AboutPage() {
 
               <Button
                 onClick={handleRandomTravel}
-                disabled={isRandomizing}
+                disabled={isRandomizing || !isClient}
                 size="lg"
                 variant="outline"
                 className="h-12 px-8 bg-white/80 backdrop-blur-sm border-2 border-amber-200 hover:border-amber-300 hover:bg-amber-50/80 hover:text-amber-600"
