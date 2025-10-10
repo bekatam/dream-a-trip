@@ -50,6 +50,11 @@ export default function ProfilePage() {
   })
   const [isUpdating, setIsUpdating] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  
+  // File upload states
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string>("")
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // Real user data from session
   const user = {
@@ -140,6 +145,13 @@ export default function ProfilePage() {
     }
   }, [session])
 
+  // Clean up file states when dialog closes
+  useEffect(() => {
+    if (!editProfileOpen) {
+      removeSelectedFile()
+    }
+  }, [editProfileOpen])
+
   const favoriteDestinations = destinations.filter((dest) => favorites.includes(dest._id))
 
   // Function to remove from favorites
@@ -157,22 +169,93 @@ export default function ProfilePage() {
     }
   }
 
+  // File handling functions
+  const handleFileSelect = (file: File) => {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Пожалуйста, выберите файл в формате JPEG, JPG или PNG')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      alert('Размер файла не должен превышать 5MB')
+      return
+    }
+
+    setSelectedFile(file)
+    
+    // Create preview URL
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl("")
+    }
+  }
+
   // Function to update profile
   const updateProfile = async () => {
     setIsUpdating(true)
     try {
+      let avatarUrl = profileForm.avatar
+
+      // If a file is selected, convert it to base64
+      if (selectedFile) {
+        const base64 = await convertFileToBase64(selectedFile)
+        avatarUrl = base64
+      }
+
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(profileForm),
+        body: JSON.stringify({
+          ...profileForm,
+          avatar: avatarUrl
+        }),
       })
 
       if (response.ok) {
         setEditProfileOpen(false)
         setShowSuccessMessage(true)
         setTimeout(() => setShowSuccessMessage(false), 3000)
+        // Clean up file states
+        removeSelectedFile()
         // Refresh session or show success message
         window.location.reload() // Simple refresh for now
       } else {
@@ -183,6 +266,16 @@ export default function ProfilePage() {
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  // Helper function to convert file to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = error => reject(error)
+    })
   }
 
   // Function to update settings
@@ -240,7 +333,10 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <Avatar className="h-24 w-24 border-4 border-primary/20">
-              <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+              <AvatarImage 
+                src={previewUrl || user.avatar || "/placeholder.svg"} 
+                alt={user.name} 
+              />
               <AvatarFallback className="text-2xl">
                 {user.name
                   .split(" ")
@@ -297,19 +393,91 @@ export default function ProfilePage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="avatar" className="text-sm font-medium">
-                          URL аватара
+                        <Label className="text-sm font-medium">
+                          Аватар
                         </Label>
-                        <Input
-                          id="avatar"
-                          value={profileForm.avatar}
-                          onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
-                          placeholder="https://example.com/avatar.jpg"
-                          className="h-11"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Вставьте ссылку на изображение для вашего аватара
-                        </p>
+                        
+                        {/* File Upload Area */}
+                        <div
+                          className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                            isDragOver 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-muted-foreground/25 hover:border-primary/50'
+                          }`}
+                          onDrop={handleDrop}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                        >
+                          <input
+                            type="file"
+                            id="avatar-upload"
+                            accept="image/jpeg,image/jpg,image/png"
+                            onChange={handleFileInputChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          
+                          {previewUrl ? (
+                            <div className="space-y-3">
+                              <div className="relative inline-block">
+                                <img
+                                  src={previewUrl}
+                                  alt="Preview"
+                                  className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-primary/20"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={removeSelectedFile}
+                                  className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-xs hover:bg-destructive/90"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedFile?.name}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="w-12 h-12 mx-auto bg-muted rounded-full flex items-center justify-center">
+                                <svg
+                                  className="w-6 h-6 text-muted-foreground"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                  />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  Перетащите изображение сюда или{' '}
+                                  <span className="text-primary">выберите файл</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  JPEG, JPG, PNG до 5MB
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Fallback URL input */}
+                        <div className="pt-2">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Или введите URL изображения:
+                          </p>
+                          <Input
+                            value={profileForm.avatar}
+                            onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
+                            placeholder="https://example.com/avatar.jpg"
+                            className="h-9"
+                          />
+                        </div>
                       </div>
                     </div>
                     <DialogFooter className="gap-2 sm:gap-0">
