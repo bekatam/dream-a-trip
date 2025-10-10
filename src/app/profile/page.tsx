@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   MapPin,
   Heart,
@@ -24,70 +29,213 @@ import { getData } from "@/app/endpoints/axios"
 import { type City } from "@/types"
 
 export default function ProfilePage() {
+  const { data: session } = useSession()
   const [destinations, setDestinations] = useState<City[]>([])
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [budgets, setBudgets] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
+  const [favoritesLoading, setFavoritesLoading] = useState(true)
+  const [budgetsLoading, setBudgetsLoading] = useState(true)
+  
+  // Dialog states
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [editSettingsOpen, setEditSettingsOpen] = useState(false)
+  
+  // Form states
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    avatar: ""
+  })
+  const [settingsForm, setSettingsForm] = useState({
+    currency: "KZT",
+    language: "ru",
+    notifications: true
+  })
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
 
-  // Mock user data - in real app, this would come from auth context
+  // Real user data from session
   const user = {
-    name: "Иван Иванов",
-    email: "ivan@example.com",
-    avatar: "/diverse-user-avatars.png",
-    memberSince: "Январь 2024",
+    name: session?.user?.name || "Пользователь",
+    email: session?.user?.email || "",
+    avatar: session?.user?.image || "/diverse-user-avatars.png",
+    memberSince: "Недавно", // TODO: Add createdAt to user session
   }
 
-  // Mock favorites - in real app, this would be stored in database
-  const [favorites, setFavorites] = useState<string[]>(["1", "2", "4"])
 
-  // Mock expenses - in real app, this would come from database
-  const expenses = [
-    { id: 1, destination: "Сеул", amount: 51000, date: "2024-03-15", category: "Путешествие" },
-    { id: 2, destination: "Париж", amount: 69000, date: "2024-02-20", category: "Путешествие" },
-    { id: 3, destination: "Алматы", amount: 32000, date: "2024-01-10", category: "Путешествие" },
-  ]
-
-  // Mock travel plans
-  const travelPlans = [
-    {
-      id: 1,
-      destination: "Рим",
-      country: "Италия",
-      startDate: "2024-06-15",
-      endDate: "2024-06-22",
-      budget: 74000,
-      status: "planned",
-    },
-    {
-      id: 2,
-      destination: "Париж",
-      country: "Франция",
-      startDate: "2024-08-01",
-      endDate: "2024-08-08",
-      budget: 69000,
-      status: "planned",
-    },
-  ]
-
-  // Calculate stats
+  // Calculate stats from real data
+  const budgetEntries = Object.values(budgets)
+  const totalBudgetSpent = budgetEntries.reduce((sum, budget) => sum + (budget.totalPrice || 0), 0)
+  
+  // Get unique countries from budgets
+  const countriesFromBudgets = budgetEntries.map((budget, index) => {
+    const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
+    const city = destinations.find(dest => dest._id === cityId)
+    return city?.country
+  }).filter(Boolean)
+  
   const stats = {
-    totalTrips: expenses.length,
-    totalSpent: expenses.reduce((sum, exp) => sum + exp.amount, 0),
-    countriesVisited: new Set(expenses.map((exp) => exp.destination)).size,
-    upcomingTrips: travelPlans.length,
+    totalTrips: budgetEntries.length,
+    totalSpent: totalBudgetSpent,
+    countriesVisited: new Set(countriesFromBudgets).size,
+    upcomingTrips: budgetEntries.length, // Use budgets as "upcoming trips"
   }
 
+  // Load real data from APIs
   useEffect(() => {
-    const loadDestinations = async () => {
-      const data = await getData()
-      setDestinations(data)
-      setLoading(false)
+    const loadData = async () => {
+      try {
+        // Load destinations
+        const destinationsData = await getData()
+        setDestinations(destinationsData)
+        setLoading(false)
+
+        // Load favorites
+        const favoritesResponse = await fetch("/api/favorites")
+        if (favoritesResponse.ok) {
+          const favoritesData = await favoritesResponse.json()
+          setFavorites(favoritesData.favorites || [])
+        }
+        setFavoritesLoading(false)
+
+        // Load budgets
+        const budgetsResponse = await fetch("/api/budget")
+        if (budgetsResponse.ok) {
+          const budgetsData = await budgetsResponse.json()
+          setBudgets(budgetsData.budgets || {})
+        }
+        setBudgetsLoading(false)
+
+        // Load settings
+        const settingsResponse = await fetch("/api/settings")
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json()
+          setSettingsForm(settingsData.settings || {
+            currency: "KZT",
+            language: "ru",
+            notifications: true
+          })
+        }
+      } catch (error) {
+        console.error("Ошибка при загрузке данных:", error)
+        setLoading(false)
+        setFavoritesLoading(false)
+        setBudgetsLoading(false)
+      }
     }
-    loadDestinations()
-  }, [])
+
+    if (session) {
+      loadData()
+    }
+  }, [session])
+
+  // Initialize forms when session loads
+  useEffect(() => {
+    if (session?.user) {
+      setProfileForm({
+        name: session.user.name || "",
+        email: session.user.email || "",
+        avatar: session.user.image || ""
+      })
+    }
+  }, [session])
 
   const favoriteDestinations = destinations.filter((dest) => favorites.includes(dest._id))
 
+  // Function to remove from favorites
+  const removeFromFavorites = async (cityId: string) => {
+    try {
+      const response = await fetch(`/api/favorites/${cityId}`, {
+        method: "DELETE",
+      })
+      
+      if (response.ok) {
+        setFavorites(favorites.filter((id) => id !== cityId))
+      }
+    } catch (error) {
+      console.error("Ошибка при удалении из избранного:", error)
+    }
+  }
+
+  // Function to update profile
+  const updateProfile = async () => {
+    setIsUpdating(true)
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(profileForm),
+      })
+      
+      if (response.ok) {
+        setEditProfileOpen(false)
+        setShowSuccessMessage(true)
+        setTimeout(() => setShowSuccessMessage(false), 3000)
+        // Refresh session or show success message
+        window.location.reload() // Simple refresh for now
+      } else {
+        console.error("Ошибка при обновлении профиля")
+      }
+    } catch (error) {
+      console.error("Ошибка при обновлении профиля:", error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Function to update settings
+  const updateSettings = async () => {
+    setIsUpdating(true)
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settingsForm),
+      })
+      
+      if (response.ok) {
+        setEditSettingsOpen(false)
+        setShowSuccessMessage(true)
+        setTimeout(() => setShowSuccessMessage(false), 3000)
+        // Settings are already updated in local state
+      } else {
+        console.error("Ошибка при обновлении настроек")
+      }
+    } catch (error) {
+      console.error("Ошибка при обновлении настроек:", error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Show loading while checking session
+  if (!session) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-muted-foreground">Загрузка профиля...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+            Изменения сохранены успешно!
+          </div>
+        </div>
+      )}
       {/* Header Section */}
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-8">
@@ -109,10 +257,68 @@ export default function ProfilePage() {
                   <p className="text-muted-foreground mb-2">{user.email}</p>
                   <p className="text-sm text-muted-foreground">Участник с {user.memberSince}</p>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                  <Edit className="h-4 w-4" />
-                  Редактировать
-                </Button>
+                <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                      <Edit className="h-4 w-4" />
+                      Редактировать
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Редактировать профиль</DialogTitle>
+                      <DialogDescription>
+                        Внесите изменения в информацию о вашем профиле.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                          Имя
+                        </Label>
+                        <Input
+                          id="name"
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="avatar" className="text-right">
+                          Аватар
+                        </Label>
+                        <Input
+                          id="avatar"
+                          value={profileForm.avatar}
+                          onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})}
+                          className="col-span-3"
+                          placeholder="URL изображения"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        type="submit" 
+                        onClick={updateProfile}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? "Сохранение..." : "Сохранить изменения"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {/* Stats Grid */}
@@ -188,7 +394,7 @@ export default function ProfilePage() {
               </Button>
             </div>
 
-            {loading ? (
+            {favoritesLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
               </div>
@@ -216,7 +422,7 @@ export default function ProfilePage() {
                         variant="ghost"
                         size="icon"
                         className="absolute top-3 right-3 bg-white/90 hover:bg-white"
-                        onClick={() => setFavorites(favorites.filter((id) => id !== dest._id))}
+                        onClick={() => removeFromFavorites(dest._id)}
                       >
                         <Heart className="h-4 w-4 fill-red-500 text-red-500" />
                       </Button>
@@ -262,30 +468,48 @@ export default function ProfilePage() {
                   <CardDescription>Ваши недавние траты на путешествия</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {expenses.map((expense) => (
-                      <div
-                        key={expense.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <MapPin className="h-6 w-6 text-primary" />
+                  {budgetsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+                    </div>
+                  ) : budgetEntries.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Нет данных о расходах</h3>
+                      <p className="text-muted-foreground">Создайте бюджет для города, чтобы отслеживать расходы</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {budgetEntries.map((budget, index) => {
+                        const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
+                        const city = destinations.find(dest => dest._id === cityId)
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                <MapPin className="h-6 w-6 text-primary" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold">{city?.city || "Неизвестный город"}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold">{budget.totalPrice?.toLocaleString() || 0} ₸</p>
+                              <Badge variant="secondary" className="text-xs">
+                                Бюджет
+                              </Badge>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-semibold">{expense.destination}</h4>
-                            <p className="text-sm text-muted-foreground">{expense.date}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold">{expense.amount.toLocaleString()} ₸</p>
-                          <Badge variant="secondary" className="text-xs">
-                            {expense.category}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -303,13 +527,13 @@ export default function ProfilePage() {
                       <p className="text-3xl font-bold">{stats.totalSpent.toLocaleString()} ₸</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Средний чек</p>
+                      <p className="text-sm text-muted-foreground mb-1">Средний бюджет</p>
                       <p className="text-2xl font-bold">
-                        {Math.round(stats.totalSpent / stats.totalTrips).toLocaleString()} ₸
+                        {stats.totalTrips > 0 ? Math.round(stats.totalSpent / stats.totalTrips).toLocaleString() : 0} ₸
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Поездок в этом году</p>
+                      <p className="text-sm text-muted-foreground mb-1">Создано бюджетов</p>
                       <p className="text-2xl font-bold">{stats.totalTrips}</p>
                     </div>
                   </CardContent>
@@ -342,64 +566,93 @@ export default function ProfilePage() {
               </Button>
             </div>
 
-            {travelPlans.length === 0 ? (
+            {budgetsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : budgetEntries.length === 0 ? (
               <Card className="p-12 text-center">
                 <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Нет запланированных поездок</h3>
-                <p className="text-muted-foreground mb-6">Начните планировать свое следующее приключение</p>
+                <p className="text-muted-foreground mb-6">Создайте бюджет для города, чтобы начать планирование</p>
                 <Button asChild>
                   <Link href="/list">Выбрать направление</Link>
                 </Button>
               </Card>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {travelPlans.map((plan) => (
-                  <Card key={plan.id} className="overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-2xl">{plan.destination}</CardTitle>
-                          <CardDescription className="text-base mt-1">{plan.country}</CardDescription>
+                {budgetEntries.map((budget, index) => {
+                  const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
+                  const city = destinations.find(dest => dest._id === cityId)
+                  return (
+                    <Card key={index} className="overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-2xl">{city?.city || "Неизвестный город"}</CardTitle>
+                            <CardDescription className="text-base mt-1">{city?.country || "Неизвестная страна"}</CardDescription>
+                          </div>
+                          <Badge className="bg-success text-white">Запланировано</Badge>
                         </div>
-                        <Badge className="bg-success text-white">Запланировано</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Начало</p>
-                          <p className="font-semibold">{new Date(plan.startDate).toLocaleDateString("ru-RU")}</p>
+                      </CardHeader>
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Создан</p>
+                            <p className="font-semibold">
+                              {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Обновлен</p>
+                            <p className="font-semibold">
+                              {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Окончание</p>
-                          <p className="font-semibold">{new Date(plan.endDate).toLocaleDateString("ru-RU")}</p>
-                        </div>
-                      </div>
 
-                      <div className="pt-4 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-muted-foreground">Бюджет</p>
-                          <p className="text-xl font-bold">{plan.budget.toLocaleString()} ₸</p>
+                        <div className="pt-4 border-t">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-muted-foreground">Бюджет</p>
+                            <p className="text-xl font-bold">{budget.totalPrice?.toLocaleString() || 0} ₸</p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex gap-2 pt-2">
-                        <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Изменить
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-destructive hover:text-destructive bg-transparent"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Удалить
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="flex gap-2 pt-2">
+                          <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">
+                            <Link href={`/city/${cityId || ""}`}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Изменить
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-destructive hover:text-destructive bg-transparent"
+                            onClick={async () => {
+                              if (!cityId) return
+                              try {
+                                const response = await fetch(`/api/budget/${cityId}`, {
+                                  method: "DELETE",
+                                })
+                                if (response.ok) {
+                                  const newBudgets = { ...budgets }
+                                  delete newBudgets[cityId]
+                                  setBudgets(newBudgets)
+                                }
+                              } catch (error) {
+                                console.error("Ошибка при удалении бюджета:", error)
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Удалить
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </TabsContent>
@@ -426,9 +679,67 @@ export default function ProfilePage() {
                     <p className="text-sm font-medium mb-1">Email</p>
                     <p className="text-muted-foreground">{user.email}</p>
                   </div>
-                  <Button variant="outline" className="w-full bg-transparent">
-                    Редактировать профиль
-                  </Button>
+                  <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full bg-transparent">
+                        Редактировать профиль
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Редактировать профиль</DialogTitle>
+                        <DialogDescription>
+                          Внесите изменения в информацию о вашем профиле.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="name" className="text-right">
+                            Имя
+                          </Label>
+                          <Input
+                            id="name"
+                            value={profileForm.name}
+                            onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="email" className="text-right">
+                            Email
+                          </Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={profileForm.email}
+                            onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="avatar" className="text-right">
+                            Аватар
+                          </Label>
+                          <Input
+                            id="avatar"
+                            value={profileForm.avatar}
+                            onChange={(e) => setProfileForm({...profileForm, avatar: e.target.value})}
+                            className="col-span-3"
+                            placeholder="URL изображения"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          type="submit" 
+                          onClick={updateProfile}
+                          disabled={isUpdating}
+                        >
+                          {isUpdating ? "Сохранение..." : "Сохранить изменения"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
 
@@ -440,15 +751,100 @@ export default function ProfilePage() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm font-medium mb-1">Валюта</p>
-                    <p className="text-muted-foreground">Тенге (₸)</p>
+                    <p className="text-muted-foreground">
+                      {settingsForm.currency === "KZT" ? "Тенге (₸)" :
+                       settingsForm.currency === "USD" ? "Доллар ($)" :
+                       settingsForm.currency === "EUR" ? "Евро (€)" :
+                       settingsForm.currency === "RUB" ? "Рубль (₽)" : "Тенге (₸)"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Язык</p>
-                    <p className="text-muted-foreground">Русский</p>
+                    <p className="text-muted-foreground">
+                      {settingsForm.language === "ru" ? "Русский" :
+                       settingsForm.language === "en" ? "English" :
+                       settingsForm.language === "kk" ? "Қазақша" : "Русский"}
+                    </p>
                   </div>
-                  <Button variant="outline" className="w-full bg-transparent">
-                    Изменить настройки
-                  </Button>
+                  <Dialog open={editSettingsOpen} onOpenChange={setEditSettingsOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full bg-transparent">
+                        Изменить настройки
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Настройки путешествий</DialogTitle>
+                        <DialogDescription>
+                          Настройте параметры для ваших путешествий.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="currency" className="text-right">
+                            Валюта
+                          </Label>
+                          <Select 
+                            value={settingsForm.currency} 
+                            onValueChange={(value) => setSettingsForm({...settingsForm, currency: value})}
+                          >
+                            <SelectTrigger className="col-span-3">
+                              <SelectValue placeholder="Выберите валюту" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="KZT">Тенге (₸)</SelectItem>
+                              <SelectItem value="USD">Доллар ($)</SelectItem>
+                              <SelectItem value="EUR">Евро (€)</SelectItem>
+                              <SelectItem value="RUB">Рубль (₽)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="language" className="text-right">
+                            Язык
+                          </Label>
+                          <Select 
+                            value={settingsForm.language} 
+                            onValueChange={(value) => setSettingsForm({...settingsForm, language: value})}
+                          >
+                            <SelectTrigger className="col-span-3">
+                              <SelectValue placeholder="Выберите язык" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ru">Русский</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                              <SelectItem value="kk">Қазақша</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="notifications" className="text-right">
+                            Уведомления
+                          </Label>
+                          <div className="col-span-3">
+                            <label className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                checked={settingsForm.notifications}
+                                onChange={(e) => setSettingsForm({...settingsForm, notifications: e.target.checked})}
+                                className="rounded"
+                              />
+                              <span className="text-sm">Получать уведомления о новых предложениях</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          type="submit" 
+                          onClick={updateSettings}
+                          disabled={isUpdating}
+                        >
+                          {isUpdating ? "Сохранение..." : "Сохранить настройки"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
 
