@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 import connectToMongo from "@/app/utils/connectMongo"
 import UserModel from "../../../../../models/UserModel"
 
 // GET - проверить, добавлен ли город в избранное
 export async function GET(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -22,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 })
     }
 
-    const isFavorite = user.favorites?.includes(params.cityId) || false
+    const isFavorite = user.favorites?.includes(cityId) || false
     
     return NextResponse.json({ isFavorite })
   } catch (error) {
@@ -34,9 +35,10 @@ export async function GET(
 // POST - добавить город в избранное
 export async function POST(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -55,8 +57,8 @@ export async function POST(
     }
 
     // Проверяем, не добавлен ли уже этот город
-    if (!user.favorites.includes(params.cityId)) {
-      user.favorites.push(params.cityId)
+    if (!user.favorites.includes(cityId)) {
+      user.favorites.push(cityId)
       await user.save()
     }
 
@@ -73,9 +75,10 @@ export async function POST(
 // DELETE - удалить город из избранного
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -90,7 +93,7 @@ export async function DELETE(
 
     // Удаляем город из избранного
     if (user.favorites) {
-      user.favorites = user.favorites.filter((id: string) => id !== params.cityId)
+      user.favorites = user.favorites.filter((id: string) => id !== cityId)
       await user.save()
     }
 

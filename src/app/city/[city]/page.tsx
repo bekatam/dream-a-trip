@@ -134,7 +134,9 @@ export default function CityPage() {
         } catch (error) {
           console.error("Ошибка при загрузке данных пользователя:", error)
           // Если ошибка 404, возможно API endpoint не существует
-          if (error.response?.status === 404) {
+          if (error && typeof error === 'object' && 'response' in error && 
+              error.response && typeof error.response === 'object' && 
+              'status' in error.response && error.response.status === 404) {
             console.log("API endpoint не найден, возможно сервер не перезапущен")
           }
         }

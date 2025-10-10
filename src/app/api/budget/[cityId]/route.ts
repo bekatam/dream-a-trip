@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 import connectToMongo from "@/app/utils/connectMongo"
 import UserModel from "../../../../../models/UserModel"
 
 // GET - получить сохраненный бюджет для города
 export async function GET(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -22,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 })
     }
 
-    const budget = user.budgets?.get(params.cityId) || null
+    const budget = user.budgets?.get(cityId) || null
     
     return NextResponse.json({ budget })
   } catch (error) {
@@ -34,9 +35,10 @@ export async function GET(
 // POST - сохранить бюджет для города
 export async function POST(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -58,7 +60,7 @@ export async function POST(
     }
 
     // Сохраняем бюджет для города
-    user.budgets.set(params.cityId, {
+    user.budgets.set(cityId, {
       destinations: destinations || [],
       foodPrice: foodPrice || 0,
       hotelPrice: hotelPrice || 0,
@@ -70,7 +72,7 @@ export async function POST(
 
     return NextResponse.json({ 
       message: "Бюджет сохранен",
-      budget: user.budgets.get(params.cityId)
+      budget: user.budgets.get(cityId)
     })
   } catch (error) {
     console.error("Ошибка при сохранении бюджета:", error)
@@ -81,9 +83,10 @@ export async function POST(
 // DELETE - удалить сохраненный бюджет для города
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { cityId: string } }
+  { params }: { params: Promise<{ cityId: string }> }
 ) {
   try {
+    const { cityId } = await params
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
@@ -98,7 +101,7 @@ export async function DELETE(
 
     // Удаляем бюджет для города
     if (user.budgets) {
-      user.budgets.delete(params.cityId)
+      user.budgets.delete(cityId)
       await user.save()
     }
 
