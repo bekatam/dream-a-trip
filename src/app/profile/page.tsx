@@ -572,7 +572,11 @@ export default function ProfilePage() {
     setEditedDestinations((prev) => {
       const list = prev[cityId] ? [...prev[cityId]] : []
       if (!list[destIndex]) return prev
-      const toggled = { ...list[destIndex], __removed: !list[destIndex].__removed }
+      const toggled = { 
+        ...list[destIndex], 
+        isBlurred: !list[destIndex].isBlurred,
+        __removed: false // Сбрасываем флаг удаления, так как теперь используем isBlurred
+      }
       const next = [...list]
       next[destIndex] = toggled
       return { ...prev, [cityId]: next }
@@ -1297,9 +1301,7 @@ export default function ProfilePage() {
                                     <div className="p-4 rounded-lg border bg-green-50">
                                       <div className="flex items-center gap-2 mb-2">
                                         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                          </svg>
+                                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-utensils-icon lucide-utensils"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
                                         </div>
                                         <span className="font-medium">Питание</span>
                                         {!editingFood[cityId] && (
@@ -1406,8 +1408,21 @@ export default function ProfilePage() {
                                           </div>
                                           <div className="flex items-center gap-3">
                                             <span className="font-semibold">{dest.price?.toLocaleString() || 0} ₸</span>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 border" aria-label="Удалить" onClick={() => removeDestinationFromCity(cityId, destIndex)}>
-                                              <X className="h-4 w-4" />
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-8 w-8 border" 
+                                              aria-label={dest.isBlurred ? "Включить в расходы" : "Исключить из расходов"} 
+                                              onClick={() => removeDestinationFromCity(cityId, destIndex)}
+                                            >
+                                              {dest.isBlurred ? (
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                              ) : (
+                                                <X className="h-4 w-4" />
+                                              )}
                                             </Button>
                                           </div>
                                         </div>
