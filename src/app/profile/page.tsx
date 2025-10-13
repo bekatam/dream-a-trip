@@ -29,9 +29,9 @@ export default function ProfilePage() {
   const [destinations, setDestinations] = useState<City[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [budgets, setBudgets] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(true)
   const [favoritesLoading, setFavoritesLoading] = useState(true)
   const [budgetsLoading, setBudgetsLoading] = useState(true)
+  const [globalLoading, setGlobalLoading] = useState(true)
 
   // Dialog states
   const [editProfileOpen, setEditProfileOpen] = useState(false)
@@ -41,7 +41,7 @@ export default function ProfilePage() {
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
-    avatar: "",
+    avatar: "", // URL остается пустым
   })
   const [settingsForm, setSettingsForm] = useState({
     currency: "KZT",
@@ -55,13 +55,30 @@ export default function ProfilePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>("")
   const [isDragOver, setIsDragOver] = useState(false)
+  
+  // User profile data
+  const [userProfile, setUserProfile] = useState<{
+    name: string
+    email: string
+    avatar: string
+    memberSince: string
+  }>({
+    name: "Пользователь",
+    email: "",
+    avatar: "/diverse-user-avatars.png",
+    memberSince: "Недавно"
+  })
+  
+  // Expenses filter state
+  const [selectedCityForExpenses, setSelectedCityForExpenses] = useState<string>("all")
+  const [expandedCityId, setExpandedCityId] = useState<string | null>(null)
 
   // Real user data from session
   const user = {
-    name: session?.user?.name || "Пользователь",
-    email: session?.user?.email || "",
-    avatar: session?.user?.image || "/diverse-user-avatars.png",
-    memberSince: "Недавно", // TODO: Add createdAt to user session
+    name: userProfile.name,
+    email: userProfile.email,
+    avatar: userProfile.avatar,
+    memberSince: userProfile.memberSince,
   }
 
   // Calculate stats from real data
@@ -77,6 +94,35 @@ export default function ProfilePage() {
     })
     .filter(Boolean)
 
+  // Get cities with budgets for dropdown
+  const citiesWithBudgets = Object.keys(budgets).map(cityId => {
+    const city = destinations.find(dest => dest._id === cityId)
+    const budget = budgets[cityId]
+    return {
+      id: cityId,
+      name: city?.city || "Неизвестный город",
+      country: city?.country || "Неизвестная страна",
+      budget: budget
+    }
+  }).filter(city => city.name !== "Неизвестный город")
+
+  // Filter expenses by selected city
+  const filteredExpenses = selectedCityForExpenses === "all" 
+    ? budgetEntries 
+    : budgetEntries.filter((budget, index) => {
+        const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
+        return cityId === selectedCityForExpenses
+      })
+
+  // Calculate stats for selected city
+  const selectedCityStats = {
+    totalSpent: filteredExpenses.reduce((sum, budget) => sum + (budget.totalPrice || 0), 0),
+    totalTrips: filteredExpenses.length,
+    averageSpent: filteredExpenses.length > 0 
+      ? Math.round(filteredExpenses.reduce((sum, budget) => sum + (budget.totalPrice || 0), 0) / filteredExpenses.length)
+      : 0
+  }
+
   const stats = {
     totalTrips: budgetEntries.length,
     totalSpent: totalBudgetSpent,
@@ -84,48 +130,87 @@ export default function ProfilePage() {
     upcomingTrips: budgetEntries.length, // Use budgets as "upcoming trips"
   }
 
-  // Load real data from APIs
+  // Load real data from APIs in parallel
   useEffect(() => {
     const loadData = async () => {
+      setGlobalLoading(true)
+      setFavoritesLoading(true)
+      setBudgetsLoading(true)
       try {
-        // Load destinations
-        const destinationsData = await getData()
-        setDestinations(destinationsData)
-        setLoading(false)
+        const destinationsPromise = getData()
+        const favoritesPromise = fetch("/api/favorites")
+        const budgetsPromise = fetch("/api/budget")
+        const settingsPromise = fetch("/api/settings")
+        const profilePromise = fetch("/api/profile")
 
-        // Load favorites
-        const favoritesResponse = await fetch("/api/favorites")
-        if (favoritesResponse.ok) {
-          const favoritesData = await favoritesResponse.json()
-          setFavorites(favoritesData.favorites || [])
+        const [
+          destinationsResult,
+          favoritesResult,
+          budgetsResult,
+          settingsResult,
+          profileResult,
+        ] = await Promise.allSettled([
+          destinationsPromise,
+          favoritesPromise,
+          budgetsPromise,
+          settingsPromise,
+          profilePromise,
+        ])
+
+        // destinations
+        if (destinationsResult.status === "fulfilled") {
+          setDestinations(destinationsResult.value)
+        }
+
+        // favorites
+        if (favoritesResult.status === "fulfilled" && favoritesResult.value.ok) {
+          const data = await favoritesResult.value.json()
+          setFavorites(data.favorites || [])
         }
         setFavoritesLoading(false)
 
-        // Load budgets
-        const budgetsResponse = await fetch("/api/budget")
-        if (budgetsResponse.ok) {
-          const budgetsData = await budgetsResponse.json()
-          setBudgets(budgetsData.budgets || {})
+        // budgets
+        if (budgetsResult.status === "fulfilled" && budgetsResult.value.ok) {
+          const data = await budgetsResult.value.json()
+          setBudgets(data.budgets || {})
         }
         setBudgetsLoading(false)
 
-        // Load settings
-        const settingsResponse = await fetch("/api/settings")
-        if (settingsResponse.ok) {
-          const settingsData = await settingsResponse.json()
+        // settings
+        if (settingsResult.status === "fulfilled" && settingsResult.value.ok) {
+          const data = await settingsResult.value.json()
           setSettingsForm(
-            settingsData.settings || {
+            data.settings || {
               currency: "KZT",
               language: "ru",
               notifications: true,
             },
           )
         }
+
+        // profile
+        if (profileResult.status === "fulfilled" && profileResult.value.ok) {
+          const profileData = await profileResult.value.json()
+          setUserProfile({
+            name: profileData.user.name || session?.user?.name || "Пользователь",
+            email: profileData.user.email || session?.user?.email || "",
+            avatar: profileData.user.image || session?.user?.image || "/diverse-user-avatars.png",
+            memberSince: formatMemberSince(profileData.user.createdAt || new Date()),
+          })
+        } else {
+          setUserProfile({
+            name: session?.user?.name || "Пользователь",
+            email: session?.user?.email || "",
+            avatar: session?.user?.image || "/diverse-user-avatars.png",
+            memberSince: formatMemberSince(new Date()),
+          })
+        }
       } catch (error) {
         console.error("Ошибка при загрузке данных:", error)
-        setLoading(false)
         setFavoritesLoading(false)
         setBudgetsLoading(false)
+      } finally {
+        setGlobalLoading(false)
       }
     }
 
@@ -134,16 +219,16 @@ export default function ProfilePage() {
     }
   }, [session])
 
-  // Initialize forms when session loads
+  // Initialize forms when userProfile loads
   useEffect(() => {
-    if (session?.user) {
+    if (userProfile.name !== "Пользователь") {
       setProfileForm({
-        name: session.user.name || "",
-        email: session.user.email || "",
-        avatar: session.user.image || "",
+        name: userProfile.name,
+        email: userProfile.email,
+        avatar: "", // Оставляем URL пустым
       })
     }
-  }, [session])
+  }, [userProfile])
 
   // Clean up file states when dialog closes
   useEffect(() => {
@@ -278,6 +363,50 @@ export default function ProfilePage() {
     })
   }
 
+  // Helper function to format date beautifully
+  const formatMemberSince = (dateString: string | Date): string => {
+    if (!dateString) return "Недавно"
+    
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    
+    // If it's today
+    if (diffDays === 0) return "Сегодня"
+    
+    // If it's yesterday
+    if (diffDays === 1) return "Вчера"
+    
+    // If it's within a week
+    if (diffDays < 7) return `${diffDays} дней назад`
+    
+    // If it's within a month
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7)
+      if (weeks === 1) return "1 неделю назад"
+      if (weeks < 4) return `${weeks} недель назад`
+    }
+    
+    // If it's within a year
+    if (diffDays < 365) {
+      const months = Math.floor(diffDays / 30)
+      if (months === 1) return "1 месяц назад"
+      if (months < 12) return `${months} месяцев назад`
+    }
+    
+    // For dates older than a year, show the actual date
+    return date.toLocaleDateString("ru-RU", { 
+      month: "long", 
+      year: "numeric" 
+    })
+  }
+
+  // Function to toggle city details
+  const toggleCityDetails = (cityId: string) => {
+    setExpandedCityId(expandedCityId === cityId ? null : cityId)
+  }
+
   // Function to update settings
   const updateSettings = async () => {
     setIsUpdating(true)
@@ -305,8 +434,8 @@ export default function ProfilePage() {
     }
   }
 
-  // Show loading while checking session
-  if (!session) {
+  // Show loading while checking session or while data is loading
+  if (!session || globalLoading) {
     return (
       <div className="min-h-[calc(100vh-64px)] bg-background flex items-center justify-center">
         <div className="text-center">
@@ -350,7 +479,9 @@ export default function ProfilePage() {
                 <div>
                   <h1 className="text-3xl font-bold mb-1">{user.name}</h1>
                   <p className="text-muted-foreground mb-2">{user.email}</p>
-                  <p className="text-sm text-muted-foreground">Участник с {user.memberSince}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {user.memberSince === "Недавно" ? "Новый участник" : `Участник с ${user.memberSince}`}
+                  </p>
                 </div>
                 <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
                   <DialogTrigger asChild>
@@ -635,15 +766,15 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold">История расходов</h2>
-                <p className="text-muted-foreground">Отслеживайте свои траты на путешествия</p>
+                <p className="text-muted-foreground">Нажмите на город для просмотра детальной информации</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2">
                 <CardHeader>
-                  <CardTitle>Последние расходы</CardTitle>
-                  <CardDescription>Ваши недавние траты на путешествия</CardDescription>
+                  <CardTitle>Все расходы</CardTitle>
+                  <CardDescription>Ваши траты по всем городам</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {budgetsLoading ? (
@@ -661,28 +792,171 @@ export default function ProfilePage() {
                       {budgetEntries.map((budget, index) => {
                         const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
                         const city = destinations.find(dest => dest._id === cityId)
+                        const isExpanded = expandedCityId === cityId
+                        
                         return (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                <MapPin className="h-6 w-6 text-primary" />
+                          <div key={index} className="border rounded-lg overflow-hidden">
+                            {/* Main city card */}
+                            <div
+                              className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
+                              onClick={() => cityId && toggleCityDetails(cityId)}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                  <MapPin className="h-6 w-6 text-primary" />
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold group-hover:text-primary transition-colors">
+                                    {city?.city || "Неизвестный город"}
+                                  </h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{city?.country}</p>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="font-semibold">{city?.city || "Неизвестный город"}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
-                                </p>
+                              <div className="text-right flex items-center gap-3">
+                                <div>
+                                  <p className="text-lg font-bold group-hover:text-primary transition-colors">
+                                    {budget.totalPrice?.toLocaleString() || 0} ₸
+                                  </p>
+                                  <Badge variant="secondary" className="text-xs">
+                                    Бюджет
+                                  </Badge>
+                                </div>
+                                <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                  <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold">{budget.totalPrice?.toLocaleString() || 0} ₸</p>
-                              <Badge variant="secondary" className="text-xs">
-                                Бюджет
-                              </Badge>
-                            </div>
+
+                            {/* Expanded details */}
+                            {isExpanded && cityId && (
+                              <div className="border-t bg-muted/20 p-6 space-y-6">
+                                {/* City Image */}
+                                <div className="relative h-32 rounded-lg overflow-hidden">
+                                  <img
+                                    src={city?.image || "/placeholder.svg"}
+                                    alt={`${city?.city || "Город"}, ${city?.country || "Страна"}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                  <div className="absolute bottom-3 left-3 text-white">
+                                    <h3 className="text-lg font-bold">{city?.city || "Город"}</h3>
+                                    <p className="text-sm opacity-90">{city?.country || "Страна"}</p>
+                                  </div>
+                                </div>
+
+                                {/* Budget Breakdown */}
+                                <div className="space-y-4">
+                                  <h4 className="text-lg font-semibold">Разбивка бюджета</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="p-4 rounded-lg border bg-blue-50">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                          </svg>
+                                        </div>
+                                        <span className="font-medium">Отели</span>
+                                      </div>
+                                      <p className="text-xl font-bold">{budget.hotelPrice?.toLocaleString() || 0} ₸</p>
+                                    </div>
+                                    
+                                    <div className="p-4 rounded-lg border bg-green-50">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                          </svg>
+                                        </div>
+                                        <span className="font-medium">Питание</span>
+                                      </div>
+                                      <p className="text-xl font-bold">{budget.foodPrice?.toLocaleString() || 0} ₸</p>
+                                    </div>
+
+                                    <div className="p-4 rounded-lg border bg-purple-50">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                        </div>
+                                        <span className="font-medium">Развлечения</span>
+                                      </div>
+                                      <p className="text-xl font-bold">
+                                        {((budget.destinations || []).reduce((sum: number, dest: any) => sum + (dest.price || 0), 0)).toLocaleString()} ₸
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-lg font-semibold">Итого</span>
+                                      <span className="text-2xl font-bold text-primary">
+                                        {budget.totalPrice?.toLocaleString() || 0} ₸
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Destinations List */}
+                                {budget.destinations && budget.destinations.length > 0 && (
+                                  <div className="space-y-4">
+                                    <h4 className="text-lg font-semibold">Запланированные места</h4>
+                                    <div className="space-y-2">
+                                      {budget.destinations.map((dest: any, destIndex: number) => (
+                                        <div key={destIndex} className="flex items-center justify-between p-3 rounded-lg border bg-white">
+                                          <div>
+                                            <p className="font-medium">{dest.name}</p>
+                                            {dest.link && (
+                                              <a 
+                                                href={dest.link} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-primary hover:underline"
+                                              >
+                                                Подробнее
+                                              </a>
+                                            )}
+                                          </div>
+                                          <span className="font-semibold">{dest.price?.toLocaleString() || 0} ₸</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex gap-3 pt-4 border-t">
+                                  <Button asChild className="flex-1">
+                                    <Link href={`/city/${cityId}`}>
+                                      Редактировать бюджет
+                                    </Link>
+                                  </Button>
+                                  <Button variant="outline" onClick={() => setExpandedCityId(null)}>
+                                    Свернуть
+                                  </Button>
+                                </div>
+
+                                {/* Last Updated */}
+                                <div className="text-sm text-muted-foreground">
+                                  Последнее обновление: {budget.lastUpdated 
+                                    ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU", {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })
+                                    : "Недавно"
+                                  }
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -696,7 +970,7 @@ export default function ProfilePage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <TrendingUp className="h-5 w-5 text-primary" />
-                      Статистика
+                      Общая статистика
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -711,7 +985,7 @@ export default function ProfilePage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Создано бюджетов</p>
+                      <p className="text-sm text-muted-foreground mb-1">Всего поездок</p>
                       <p className="text-2xl font-bold">{stats.totalTrips}</p>
                     </div>
                   </CardContent>
@@ -1008,6 +1282,7 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
       </div>
+
     </div>
   )
 }

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         name: user.name,
         email: user.email,
         image: user.image,
+        createdAt: user.createdAt,
         settings: user.settings || {
           currency: "KZT",
           language: "ru",
