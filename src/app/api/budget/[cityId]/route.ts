@@ -45,7 +45,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { destinations, foodPrice, hotelPrice, totalPrice } = body
+    const { destinations, foodPrice, hotelPrice, totalPrice, tripDate, defaultFoodPrice, defaultHotelPrice } = body
 
     await connectToMongo()
     const user = await UserModel.findOne({ email: session.user.email })
@@ -59,12 +59,26 @@ export async function POST(
       user.budgets = new Map()
     }
 
-    // Сохраняем бюджет для города
+    // Текущий бюджет, если существует
+    const existing = (user.budgets.get(cityId) as any) || {}
+
+    // Вычисляем значения с учетом дефолтов
+    const nextFoodPrice = foodPrice ?? existing.foodPrice ?? 0
+    const nextHotelPrice = hotelPrice ?? existing.hotelPrice ?? 0
+    const nextDefaultFood =
+      defaultFoodPrice ?? existing.defaultFoodPrice ?? (existing.defaultFoodPrice === undefined ? nextFoodPrice : existing.defaultFoodPrice)
+    const nextDefaultHotel =
+      defaultHotelPrice ?? existing.defaultHotelPrice ?? (existing.defaultHotelPrice === undefined ? nextHotelPrice : existing.defaultHotelPrice)
+
+    // Сохраняем/обновляем бюджет для города
     user.budgets.set(cityId, {
-      destinations: destinations || [],
-      foodPrice: foodPrice || 0,
-      hotelPrice: hotelPrice || 0,
-      totalPrice: totalPrice || 0,
+      destinations: destinations ?? existing.destinations ?? [],
+      foodPrice: nextFoodPrice,
+      hotelPrice: nextHotelPrice,
+      totalPrice: totalPrice ?? existing.totalPrice ?? 0,
+      tripDate: tripDate ?? existing.tripDate ?? null,
+      defaultFoodPrice: nextDefaultFood,
+      defaultHotelPrice: nextDefaultHotel,
       lastUpdated: new Date()
     })
 
