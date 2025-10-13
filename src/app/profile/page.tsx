@@ -265,21 +265,6 @@ export default function ProfilePage() {
 
   const favoriteDestinations = destinations.filter((dest) => favorites.includes(dest._id))
 
-  // Function to remove from favorites
-  const removeFromFavorites = async (cityId: string) => {
-    try {
-      const response = await fetch(`/api/favorites/${cityId}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        setFavorites(favorites.filter((id) => id !== cityId))
-      }
-    } catch (error) {
-      console.error("Ошибка при удалении из избранного:", error)
-    }
-  }
-
   // File handling functions
   const handleFileSelect = (file: File) => {
     // Validate file type
@@ -939,7 +924,6 @@ export default function ProfilePage() {
                         variant="ghost"
                         size="icon"
                         className="absolute top-3 right-3 bg-white/90 hover:bg-white"
-                        onClick={() => removeFromFavorites(dest._id)}
                       >
                         <Heart className="h-4 w-4 fill-red-500 text-red-500" />
                       </Button>
