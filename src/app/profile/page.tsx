@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import mongoose from "mongoose"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, Heart, Wallet, Globe, Settings, Edit, Plus, ArrowRight, Trash2, TrendingUp, X } from "lucide-react"
+import { MapPin, Heart, Wallet, Globe, Settings, Edit, Plus, ArrowRight, Trash2, TrendingUp, X, Trash } from "lucide-react"
 import { getData } from "@/app/endpoints/axios"
 import type { City } from "@/types"
 
@@ -85,6 +86,9 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("expenses")
   const [dataLoaded, setDataLoaded] = useState(false)
   const [sessionChecked, setSessionChecked] = useState(false)
+  const [newExpenseName, setNewExpenseName] = useState("")
+  const [newExpensePrice, setNewExpensePrice] = useState("")
+  const [addingExpense, setAddingExpense] = useState<Record<string, boolean>>({})
 
   // Real user data from session
   const user = {
@@ -572,15 +576,79 @@ export default function ProfilePage() {
     setEditedDestinations((prev) => {
       const list = prev[cityId] ? [...prev[cityId]] : []
       if (!list[destIndex]) return prev
+      
+      const destination = list[destIndex]
+      
+      // Если это пользовательский расход (без ссылки), помечаем как удаленный
+      if (!destination.link || destination.link.trim() === "") {
+        const toggled = { 
+          ...destination, 
+          __removed: !destination.__removed,
+          isBlurred: false // Сбрасываем isBlurred для удаленных
+        }
+        const next = [...list]
+        next[destIndex] = toggled
+        return { ...prev, [cityId]: next }
+      } else {
+        // Если это рекомендованное место (с ссылкой), переключаем isBlurred
+        const toggled = { 
+          ...destination, 
+          isBlurred: !destination.isBlurred,
+          __removed: false // Сбрасываем флаг удаления для рекомендованных
+        }
+        const next = [...list]
+        next[destIndex] = toggled
+        return { ...prev, [cityId]: next }
+      }
+    })
+  }
+
+  const toggleDestinationBlurred = (cityId: string, destIndex: number) => {
+    setEditedDestinations((prev) => {
+      const list = prev[cityId] ? [...prev[cityId]] : []
+      if (!list[destIndex]) return prev
+      
+      const destination = list[destIndex]
       const toggled = { 
-        ...list[destIndex], 
-        isBlurred: !list[destIndex].isBlurred,
-        __removed: false // Сбрасываем флаг удаления, так как теперь используем isBlurred
+        ...destination, 
+        isBlurred: !destination.isBlurred,
+        __removed: false // Сбрасываем флаг удаления при скрытии
       }
       const next = [...list]
       next[destIndex] = toggled
       return { ...prev, [cityId]: next }
     })
+  }
+
+  const addExpenseToCity = (cityId: string) => {
+    if (!newExpenseName.trim() || !newExpensePrice.trim()) return
+
+    const newExpense = {
+      name: newExpenseName.trim(),
+      price: Number(newExpensePrice),
+      link: "",
+      isBlurred: false,
+      _id: new mongoose.Types.ObjectId().toString(), // Правильный MongoDB ObjectId
+    }
+
+    setEditedDestinations((prev) => ({
+      ...prev,
+      [cityId]: [...(prev[cityId] || []), newExpense]
+    }))
+
+    // Очищаем форму
+    setNewExpenseName("")
+    setNewExpensePrice("")
+    setAddingExpense(prev => ({ ...prev, [cityId]: false }))
+  }
+
+  const toggleAddingExpense = (cityId: string) => {
+    setAddingExpense(prev => ({ ...prev, [cityId]: !prev[cityId] }))
+    if (addingExpense[cityId]) {
+      // Если закрываем форму, очищаем поля
+      setNewExpenseName("")
+      setNewExpensePrice("")
+    }
   }
 
   // Handle expense selection
@@ -1389,7 +1457,17 @@ export default function ProfilePage() {
                                 {/* Destinations List */}
                                 {(editedDestinations[cityId] && editedDestinations[cityId].length > 0) && (
                                   <div className="space-y-4">
-                                    <h4 className="text-lg font-semibold">Запланированные места</h4>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <h4 className="text-lg font-semibold">Запланированные места</h4>
+                                        <MapPin className="h-6 w-6 fill-red-500" />
+                                      </div>
+                                       <div className="text-xl font-extrabold">
+                                         {editedDestinations[cityId]
+                                           .filter((d: any) => !d?.__removed && !d?.isBlurred)
+                                           .reduce((s: number, d: any) => s + Number(d?.price || 0), 0).toLocaleString()} ₸
+                                       </div>
+                                    </div>
                                     <div className="space-y-2">
                                       {editedDestinations[cityId].map((dest: any, destIndex: number) => (
                                         <div key={destIndex} className={`flex items-center justify-between p-3 rounded-lg border bg-white ${dest.__removed || dest.isBlurred ? 'opacity-50' : ''}`}>
@@ -1408,25 +1486,120 @@ export default function ProfilePage() {
                                           </div>
                                           <div className="flex items-center gap-3">
                                             <span className="font-semibold">{dest.price?.toLocaleString() || 0} ₸</span>
-                                            <Button 
-                                              size="icon" 
-                                              variant="ghost" 
-                                              className="h-8 w-8 border" 
-                                              aria-label={dest.isBlurred ? "Включить в расходы" : "Исключить из расходов"} 
-                                              onClick={() => removeDestinationFromCity(cityId, destIndex)}
-                                            >
-                                              {dest.isBlurred ? (
-                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
+                                            <div className="flex items-center gap-1">
+                                              {(!dest.link || dest.link.trim() === "") ? (
+                                                // Пользовательские расходы - две кнопки
+                                                <>
+                                                  <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className="h-8 w-8 border" 
+                                                    aria-label={dest.isBlurred ? "Показать расход" : "Скрыть расход"}
+                                                    onClick={() => toggleDestinationBlurred(cityId, destIndex)}
+                                                  >
+                                                    {dest.isBlurred ? (
+                                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                      </svg>
+                                                    ) : (
+                                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                                                      </svg>
+                                                    )}
+                                                  </Button>
+                                                  <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className="h-8 w-8 border" 
+                                                    aria-label={dest.__removed ? "Восстановить расход" : "Удалить расход"}
+                                                    onClick={() => removeDestinationFromCity(cityId, destIndex)}
+                                                  >
+                                                    {dest.__removed ? (
+                                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                      </svg>
+                                                    ) : (
+                                                      <Trash className="h-4 w-4" />
+                                                    )}
+                                                  </Button>
+                                                </>
                                               ) : (
-                                                <X className="h-4 w-4" />
+                                                // Рекомендованные места - одна кнопка
+                                                <Button 
+                                                  size="icon" 
+                                                  variant="ghost" 
+                                                  className="h-8 w-8 border" 
+                                                  aria-label={dest.isBlurred ? "Включить в расходы" : "Исключить из расходов"}
+                                                  onClick={() => toggleDestinationBlurred(cityId, destIndex)}
+                                                >
+                                                  {dest.isBlurred ? (
+                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                  ) : (
+                                                    <Trash className="h-4 w-4" />
+                                                  )}
+                                                </Button>
                                               )}
-                                            </Button>
+                                            </div>
                                           </div>
                                         </div>
                                       ))}
+                                    </div>
+                                    
+                                    {/* Add Expense Form */}
+                                    <div className="space-y-3 pt-4 border-t">
+                                      {!addingExpense[cityId] ? (
+                                        <Button 
+                                          variant="default" 
+                                          size="sm" 
+                                          onClick={() => toggleAddingExpense(cityId)}
+                                            className="w-full bg-white hover:bg-black/40 text-black hover:text-white transition-all duration-400"
+                                        >
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          Добавить расход
+                                        </Button>
+                                      ) : (
+                                        <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                                          <div className="space-y-2">
+                                            <Label htmlFor={`expense-name-${cityId}`}>Название расхода</Label>
+                                            <Input
+                                              id={`expense-name-${cityId}`}
+                                              placeholder="Например: Такси в аэропорт"
+                                              value={newExpenseName}
+                                              onChange={(e) => setNewExpenseName(e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label htmlFor={`expense-price-${cityId}`}>Стоимость (₸)</Label>
+                                            <Input
+                                              id={`expense-price-${cityId}`}
+                                              type="number"
+                                              placeholder="5000"
+                                              value={newExpensePrice}
+                                              onChange={(e) => setNewExpensePrice(e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Button 
+                                              size="sm" 
+                                              onClick={() => addExpenseToCity(cityId)}
+                                              disabled={!newExpenseName.trim() || !newExpensePrice.trim()}
+                                            >
+                                              Добавить
+                                            </Button>
+                                            <Button 
+                                              size="sm" 
+                                              variant="outline" 
+                                              onClick={() => toggleAddingExpense(cityId)}
+                                            >
+                                              Отмена
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 )}
@@ -1435,10 +1608,10 @@ export default function ProfilePage() {
                                 <div className="flex flex-wrap gap-3 pt-4 border-t">
                                   <Button
                                     className="flex-1"
-                                    onClick={() => saveCityBudget(cityId, 'date')}
-                                    disabled={savingDate[cityId]}
+                                    onClick={() => saveCityBudget(cityId)}
+                                    disabled={isUpdating}
                                   >
-                                    {savingDate[cityId] ? (
+                                    {isUpdating ? (
                                       <span className="flex items-center gap-2">
                                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                                         Сохранение...

@@ -128,6 +128,16 @@ export default function CityPage() {
   useEffect(() => {
     const checkFavoriteStatusAndLoadBudget = async () => {
       if (session?.user && sessionChecked) {
+        // Создаем уникальный ключ для комбинации пользователь + город
+        const userKey = session.user.email || 'anonymous'
+        const dataKey = `${pathname}-${userKey}`
+        
+        // Проверяем, не загружали ли мы уже данные для этого пользователя и города
+        if (userDataLoadedRef.current[dataKey]) {
+          console.log("Данные пользователя уже загружены для города:", pathname)
+          return
+        }
+        
         try {
           // Проверяем статус избранного
           console.log("Проверяем избранное для города:", pathname)
@@ -136,6 +146,9 @@ export default function CityPage() {
           
           // Загружаем сохраненный бюджет
           await loadBudget()
+          
+          // Отмечаем, что данные загружены для этого пользователя и города
+          userDataLoadedRef.current[dataKey] = true
         } catch (error) {
           console.error("Ошибка при загрузке данных пользователя:", error)
           // Если ошибка 404, возможно API endpoint не существует
@@ -148,10 +161,13 @@ export default function CityPage() {
       }
     }
     checkFavoriteStatusAndLoadBudget()
-  }, [sessionChecked, pathname])
+  }, [sessionChecked, pathname, session?.user?.email])
 
   // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
   const aiOnceRef = useRef<{ key?: string }>({})
+  
+  // ref to track loaded user data per city to prevent duplicate requests on Alt+Tab
+  const userDataLoadedRef = useRef<{ [key: string]: boolean }>({})
 
   // Функция для объединения AI-данных с сохраненными состояниями
   const mergeAiDataWithSavedStates = (aiDestinations: any[], savedDestinations: any[]) => {
@@ -309,7 +325,7 @@ export default function CityPage() {
         // Преобразуем строковые _id обратно в ObjectId и восстанавливаем состояние isBlurred
         const restoredDestinations = budget.destinations.map((dest: any) => ({
           ...dest,
-          _id: new mongoose.Types.ObjectId(dest._id),
+          _id: mongoose.Types.ObjectId.isValid(dest._id) ? new mongoose.Types.ObjectId(dest._id) : new mongoose.Types.ObjectId(),
           isBlurred: dest.isBlurred || false // Восстанавливаем состояние отключения
         }))
         
