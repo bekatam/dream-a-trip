@@ -250,7 +250,7 @@ export default function TravelList() {
                             <Badge className="bg-warning/90 text-white border-0 backdrop-blur-sm">Частично</Badge>
                           )}
                           {status === "expensive" && (
-                            <Badge variant="secondary" className="bg-muted/90 backdrop-blur-sm">
+                            <Badge className="bg-red-500/90 text-white border-0 backdrop-blur-sm">
                               Дорого
                             </Badge>
                           )}

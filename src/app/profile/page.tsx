@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, Heart, Wallet, Calendar, Globe, Settings, Edit, Plus, ArrowRight, Trash2, TrendingUp, X } from "lucide-react"
+import { MapPin, Heart, Wallet, Globe, Settings, Edit, Plus, ArrowRight, Trash2, TrendingUp, X } from "lucide-react"
 import { getData } from "@/app/endpoints/axios"
 import type { City } from "@/types"
 
@@ -79,6 +79,7 @@ export default function ProfilePage() {
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [activeTab, setActiveTab] = useState("favorites")
 
   // Real user data from session
   const user = {
@@ -234,8 +235,8 @@ export default function ProfilePage() {
       const b = budgets[cityId] || {}
       next[cityId] = {
         tripDate: b.tripDate ? formatDateForInput(b.tripDate) : "",
-        hotelPrice: Number(b.hotelPrice || 0),
-        foodPrice: Number(b.foodPrice || 0),
+        hotelPrice: b.hotelPrice || 0,
+        foodPrice: b.foodPrice || 0,
       }
       const dests = Array.isArray(b.destinations) ? b.destinations : []
       nextDests[cityId] = dests.map((d: any) => ({ ...d, __removed: false }))
@@ -542,6 +543,17 @@ export default function ProfilePage() {
     })
   }
 
+  // Clear selection function
+  const clearSelection = () => {
+    setSelectedExpenses([])
+  }
+
+  // Handle tab change and clear selection
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    setSelectedExpenses([])
+  }
+
   // Filter expenses by search query
   const filteredBudgetEntries = budgetEntries.filter((budget, index) => {
     const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
@@ -834,7 +846,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                    <Calendar className="h-4 w-4" />
+                    <MapPin className="h-4 w-4" />
                     Поездок
                   </div>
                   <p className="text-2xl font-bold">{stats.totalTrips}</p>
@@ -867,9 +879,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="favorites" className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <div className="container mx-auto px-4 py-8">
+          <Tabs defaultValue="favorites" value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="favorites" className="gap-2">
               <Heart className="h-4 w-4" />
               Избранное
@@ -877,10 +889,6 @@ export default function ProfilePage() {
             <TabsTrigger value="expenses" className="gap-2">
               <Wallet className="h-4 w-4" />
               Расходы
-            </TabsTrigger>
-            <TabsTrigger value="plans" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              Планы
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -992,6 +1000,14 @@ export default function ProfilePage() {
                         <span className="text-sm text-muted-foreground">
                           Выбрано: {selectedExpenses.length}
                         </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearSelection}
+                          disabled={isUpdating}
+                        >
+                          Снять выделение
+                        </Button>
                         <Button
                           variant="destructive"
                           size="sm"
@@ -1123,9 +1139,9 @@ export default function ProfilePage() {
                                             className="w-full"
                                             type="number"
                                             min={0}
-                                            value={editedBudgets[cityId]?.hotelPrice ?? 0}
+                                            value={editedBudgets[cityId]?.hotelPrice ?? ""}
                                             onChange={(e) => {
-                                              const val = Number(e.target.value || 0)
+                                              const val = e.target.value === "" ? 0 : Number(e.target.value)
                                               setEditedBudgets((prev) => ({
                                                 ...prev,
                                                 [cityId]: {
@@ -1170,9 +1186,9 @@ export default function ProfilePage() {
                                             className="w-full"
                                             type="number"
                                             min={0}
-                                            value={editedBudgets[cityId]?.foodPrice ?? 0}
+                                            value={editedBudgets[cityId]?.foodPrice ?? ""}
                                             onChange={(e) => {
-                                              const val = Number(e.target.value || 0)
+                                              const val = e.target.value === "" ? 0 : Number(e.target.value)
                                               setEditedBudgets((prev) => ({
                                                 ...prev,
                                                 [cityId]: {
@@ -1290,8 +1306,8 @@ export default function ProfilePage() {
                                         ...prev,
                                         [cityId]: {
                                           tripDate: b.tripDate ? formatDateForInput(b.tripDate) : "",
-                                          hotelPrice: Number(b.hotelPrice || 0),
-                                          foodPrice: Number(b.foodPrice || 0),
+                                          hotelPrice: b.hotelPrice || 0,
+                                          foodPrice: b.foodPrice || 0,
                                         },
                                       }))
                                       setExpandedCityId(null)
@@ -1362,111 +1378,6 @@ export default function ProfilePage() {
             </div>
           </TabsContent>
 
-          {/* Plans Tab */}
-          <TabsContent value="plans" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Планы путешествий</h2>
-                <p className="text-muted-foreground">Ваши предстоящие поездки</p>
-              </div>
-              <Button asChild>
-                <Link href="/list">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Новый план
-                </Link>
-              </Button>
-            </div>
-
-            {budgetsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : budgetEntries.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Нет запланированных поездок</h3>
-                <p className="text-muted-foreground mb-6">Создайте бюджет для города, чтобы начать планирование</p>
-                <Button asChild>
-                  <Link href="/list">Выбрать направление</Link>
-                </Button>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {budgetEntries.map((budget, index) => {
-                  const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
-                  const city = destinations.find(dest => dest._id === cityId)
-                  return (
-                    <Card key={index} className="overflow-hidden">
-                      <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-2xl">{city?.city || "Неизвестный город"}</CardTitle>
-                            <CardDescription className="text-base mt-1">{city?.country || "Неизвестная страна"}</CardDescription>
-                          </div>
-                          <Badge className="bg-success text-white">Запланировано</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-1">Создан</p>
-                            <p className="font-semibold">
-                              {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-1">Обновлен</p>
-                            <p className="font-semibold">
-                              {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm text-muted-foreground">Бюджет</p>
-                            <p className="text-xl font-bold">{budget.totalPrice?.toLocaleString() || 0} ₸</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                          <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">
-                            <Link href={`/city/${cityId || ""}`}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Изменить
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-destructive hover:text-destructive bg-transparent"
-                            onClick={async () => {
-                              if (!cityId) return
-                              try {
-                                const response = await fetch(`/api/budget/${cityId}`, {
-                                  method: "DELETE",
-                                })
-                                if (response.ok) {
-                                  const newBudgets = { ...budgets }
-                                  delete newBudgets[cityId]
-                                  setBudgets(newBudgets)
-                                }
-                              } catch (error) {
-                                console.error("Ошибка при удалении бюджета:", error)
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Удалить
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
