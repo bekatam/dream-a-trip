@@ -17,6 +17,7 @@ import {
   Zap,
   Heart,
   Dices,
+  List,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -193,9 +194,15 @@ export default function AboutPage() {
               </Button>
 
               <Button asChild size="lg" variant="outline" className="h-12 px-8 bg-white/80 backdrop-blur-sm">
-                <Link href="/">
+                <Link href="/map">
                   <MapPin className="w-5 h-5 mr-2" />
                   Посмотреть карту
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-12 px-8 bg-white/80 backdrop-blur-sm">
+                <Link href="/list">
+                  <List className="w-5 h-5 mr-2" />
+                  Посмотреть список 
                 </Link>
               </Button>
             </div>

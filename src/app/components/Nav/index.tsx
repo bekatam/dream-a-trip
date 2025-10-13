@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { useSession, signOut } from "next-auth/react"
 
 const navLinks = [
-  { href: "/", label: "Главная", badge: "Beta" },
+  { href: "/", label: "Главная" },
   { href: "/map", label: "Карта", badge: "Pre-alpha" },
   { href: "/list", label: "Список", badge: "Beta" },
 ]
@@ -60,16 +60,18 @@ export default function Nav() {
                   )}
                 >
                   {link.label}
-                  <Badge
-                    variant={isActive(link.href) ? "default" : "secondary"}
-                    className={cn(
-                      "text-[10px] font-medium",
-                      link.badge === "Beta" && (isActive(link.href) ? "bg-success/90 text-white border-0" : "bg-success/20 text-success"),
-                      link.badge === "Pre-alpha" && (isActive(link.href) ? "bg-warning/90 text-white border-0" : "bg-warning/20 text-warning"),
-                    )}
-                  >
-                    {link.badge}
-                  </Badge>
+                  {link.badge && (
+                    <Badge
+                      variant={isActive(link.href) ? "default" : "secondary"}
+                      className={cn(
+                        "text-[10px] font-medium",
+                        link.badge === "Beta" && (isActive(link.href) ? "bg-success/90 text-white border-0" : "bg-success/20 text-success"),
+                        link.badge === "Pre-alpha" && (isActive(link.href) ? "bg-warning/90 text-white border-0" : "bg-warning/20 text-warning"),
+                      )}
+                    >
+                      {link.badge}
+                    </Badge>
+                  )}
                   {isActive(link.href) && (
                     <span className="absolute inset-x-3 -bottom-1 h-0.5 rounded bg-primary/80" aria-hidden="true" />
                   )}

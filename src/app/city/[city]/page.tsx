@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import { getData } from "@/app/endpoints/axios"
 import axios from "axios"
 import mongoose from "mongoose"
-import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft, Heart } from "lucide-react"
+import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft, Heart, PlaneTakeoff, LandPlot } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,10 @@ export default function CityPage() {
   const { data: session, status } = useSession()
   const [isFavorite, setIsFavorite] = useState(false)
   const [savedDestinations, setSavedDestinations] = useState<any[]>([])
+  const [sessionChecked, setSessionChecked] = useState(false)
+  const [isPlanningTrip, setIsPlanningTrip] = useState(false)
+  const [tripPlanned, setTripPlanned] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const [items, setFilteredItems] = useState<Item[]>([
     {
@@ -113,10 +117,27 @@ export default function CityPage() {
     getDataAsync()
   }, [pathname])
 
+  // Check session and trigger data loading only once
+  useEffect(() => {
+    if (session?.user && !sessionChecked) {
+      setSessionChecked(true)
+    }
+  }, [session, sessionChecked])
+
   // Check favorite status and load budget when session is available
   useEffect(() => {
     const checkFavoriteStatusAndLoadBudget = async () => {
-      if (session?.user) {
+      if (session?.user && sessionChecked) {
+        // Создаем уникальный ключ для комбинации пользователь + город
+        const userKey = session.user.email || 'anonymous'
+        const dataKey = `${pathname}-${userKey}`
+        
+        // Проверяем, не загружали ли мы уже данные для этого пользователя и города
+        if (userDataLoadedRef.current[dataKey]) {
+          console.log("Данные пользователя уже загружены для города:", pathname)
+          return
+        }
+        
         try {
           // Проверяем статус избранного
           console.log("Проверяем избранное для города:", pathname)
@@ -125,6 +146,9 @@ export default function CityPage() {
           
           // Загружаем сохраненный бюджет
           await loadBudget()
+          
+          // Отмечаем, что данные загружены для этого пользователя и города
+          userDataLoadedRef.current[dataKey] = true
         } catch (error) {
           console.error("Ошибка при загрузке данных пользователя:", error)
           // Если ошибка 404, возможно API endpoint не существует
@@ -137,10 +161,13 @@ export default function CityPage() {
       }
     }
     checkFavoriteStatusAndLoadBudget()
-  }, [session, pathname])
+  }, [sessionChecked, pathname, session?.user?.email])
 
   // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
   const aiOnceRef = useRef<{ key?: string }>({})
+  
+  // ref to track loaded user data per city to prevent duplicate requests on Alt+Tab
+  const userDataLoadedRef = useRef<{ [key: string]: boolean }>({})
 
   // Функция для объединения AI-данных с сохраненными состояниями
   const mergeAiDataWithSavedStates = (aiDestinations: any[], savedDestinations: any[]) => {
@@ -169,18 +196,10 @@ export default function CityPage() {
       const updatedItems = prevItems.map((item) => {
         const updatedDestinations = item.destinations.map((destination) => {
           if (destination._id === itemToBlur && destination.link.trim() === "") {
-            // Удаляем пользовательские расходы (без ссылки)
-            axios
-              .delete(`/api/city/${pathname}`)
-              .then((response) => {
-                console.log(response.data)
-              })
-              .catch((error) => {
-                console.error("error")
-              })
+            // Удаляем пользовательские расходы (без ссылки) - только локально
             return null
           } else if (destination._id === itemToBlur) {
-            // Переключаем состояние isBlurred для рекомендованных мест
+            // Переключаем состояние isBlurred для рекомендованных мест - только локально
             return { ...destination, isBlurred: !destination.isBlurred }
           }
           return destination
@@ -193,12 +212,8 @@ export default function CityPage() {
       return updatedItems
     })
     
-    // Автоматически сохраняем бюджет после изменения
-    setTimeout(() => {
-      if (session?.user) {
-        saveBudget()
-      }
-    }, 100)
+    // Отмечаем, что есть несохраненные изменения
+    setHasUnsavedChanges(true)
   }
 
   useEffect(() => {
@@ -233,18 +248,11 @@ export default function CityPage() {
       },
     ])
 
-    if (shopName.trim() !== "") {
-      await axios.post(`/api/city/${pathname}`, newDestination)
-    }
     setShopName("")
     setShopPrice(0)
     
-    // Автоматически сохраняем бюджет после добавления расхода
-    setTimeout(() => {
-      if (session?.user) {
-        saveBudget()
-      }
-    }, 100)
+    // Отмечаем, что есть несохраненные изменения
+    setHasUnsavedChanges(true)
   }
 
   const handleToggleFavorite = async () => {
@@ -262,6 +270,26 @@ export default function CityPage() {
       }
     } catch (error) {
       console.error("Ошибка при работе с избранным:", error)
+    }
+  }
+
+  const handlePlanTrip = async () => {
+    if (!session?.user || isPlanningTrip) return
+    
+    setIsPlanningTrip(true)
+    
+    try {
+      // Сохраняем бюджет с текущими данными
+      await saveBudget()
+      
+      // Показываем успешное состояние
+      setTripPlanned(true)
+      setHasUnsavedChanges(false) // Сбрасываем флаг несохраненных изменений
+    } catch (error) {
+      console.error("Ошибка при планировании поездки:", error)
+      // В случае ошибки можно показать toast или другое уведомление
+    } finally {
+      setIsPlanningTrip(false)
     }
   }
 
@@ -297,7 +325,7 @@ export default function CityPage() {
         // Преобразуем строковые _id обратно в ObjectId и восстанавливаем состояние isBlurred
         const restoredDestinations = budget.destinations.map((dest: any) => ({
           ...dest,
-          _id: new mongoose.Types.ObjectId(dest._id),
+          _id: mongoose.Types.ObjectId.isValid(dest._id) ? new mongoose.Types.ObjectId(dest._id) : new mongoose.Types.ObjectId(),
           isBlurred: dest.isBlurred || false // Восстанавливаем состояние отключения
         }))
         
@@ -311,6 +339,7 @@ export default function CityPage() {
           hotelPrice: budget.hotelPrice,
           price: budget.totalPrice
         }])
+        setHasUnsavedChanges(false) // Сбрасываем флаг при загрузке данных
       }
     } catch (error) {
       console.error("Ошибка при загрузке бюджета:", error)
@@ -624,6 +653,31 @@ export default function CityPage() {
                       <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
                       <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
                     </div>
+                    {session?.user && (
+                      <Button 
+                        onClick={tripPlanned ? () => window.location.href = '/profile' : handlePlanTrip}
+                        className="w-full bg-primary hover:bg-primary/90"
+                        size="lg"
+                        disabled={isPlanningTrip}
+                      >
+                        {isPlanningTrip ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Планируем поездку...
+                          </>
+                        ) : tripPlanned ? (
+                          <>
+                            <LandPlot className="h-4 w-4 mr-2" />
+                            Перейти в запланированные поездки
+                          </>
+                        ) : (
+                          <>
+                            <PlaneTakeoff className="h-4 w-4 mr-2" />
+                            {hasUnsavedChanges ? "Запланировать поездку (есть изменения)" : "Запланировать поездку"}
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
