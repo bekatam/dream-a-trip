@@ -28,9 +28,44 @@ export const authOptions: AuthOptions = {
 			},
 		}),
 	],
-	session: { strategy: "jwt" },
+	session: { 
+		strategy: "jwt",
+		maxAge: 30 * 24 * 60 * 60, // 30 days
+		updateAge: 24 * 60 * 60, // 24 hours
+	},
 	secret: process.env.AUTH_SECRET,
 	pages: { signIn: "/signin" },
+	cookies: {
+		sessionToken: {
+			name: `next-auth.session-token`,
+			options: {
+				httpOnly: true,
+				sameSite: 'lax',
+				path: '/',
+				secure: process.env.NODE_ENV === 'production',
+				maxAge: 30 * 24 * 60 * 60, // 30 days
+			},
+		},
+		callbackUrl: {
+			name: `next-auth.callback-url`,
+			options: {
+				sameSite: 'lax',
+				path: '/',
+				secure: process.env.NODE_ENV === 'production',
+				maxAge: 60 * 60, // 1 hour
+			},
+		},
+		csrfToken: {
+			name: `next-auth.csrf-token`,
+			options: {
+				httpOnly: true,
+				sameSite: 'lax',
+				path: '/',
+				secure: process.env.NODE_ENV === 'production',
+				maxAge: 60 * 60, // 1 hour
+			},
+		},
+	},
 	callbacks: {
 		async signIn({ user, account }: { user: any; account?: any }) {
 			if (account?.provider !== "credentials") {

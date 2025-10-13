@@ -9,6 +9,9 @@ export interface BudgetData {
 	foodPrice: number
 	hotelPrice: number
 	totalPrice: number
+	tripDate?: string | Date
+	defaultFoodPrice?: number
+	defaultHotelPrice?: number
 	lastUpdated: Date
 }
 
