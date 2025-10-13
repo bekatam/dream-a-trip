@@ -12,6 +12,12 @@ export interface BudgetData {
 	lastUpdated: Date
 }
 
+export interface UserSettings {
+	currency: string
+	language: string
+	notifications: boolean
+}
+
 export interface IUser {
 	name: string
 	email: string
@@ -20,6 +26,7 @@ export interface IUser {
 	provider?: string
 	favorites?: string[]
 	budgets?: Map<string, BudgetData>
+	settings?: UserSettings
 	createdAt?: Date
 	updatedAt?: Date
 }

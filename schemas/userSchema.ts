@@ -25,6 +25,11 @@ const UserSchema = new Schema(
 			},
 			default: new Map()
 		},
+		settings: {
+			currency: { type: String, default: "KZT" },
+			language: { type: String, default: "ru" },
+			notifications: { type: Boolean, default: true }
+		},
 	},
 	{ timestamps: true }
 )

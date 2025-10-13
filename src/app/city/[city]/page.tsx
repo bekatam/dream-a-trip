@@ -32,6 +32,7 @@ export default function CityPage() {
   const [loading, setLoading] = useState(true)
   const { data: session, status } = useSession()
   const [isFavorite, setIsFavorite] = useState(false)
+  const [savedDestinations, setSavedDestinations] = useState<any[]>([])
 
   const [items, setFilteredItems] = useState<Item[]>([
     {
@@ -141,11 +142,34 @@ export default function CityPage() {
   // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
   const aiOnceRef = useRef<{ key?: string }>({})
 
+  // Функция для объединения AI-данных с сохраненными состояниями
+  const mergeAiDataWithSavedStates = (aiDestinations: any[], savedDestinations: any[]) => {
+    return aiDestinations.map(aiDest => {
+      // Ищем соответствующий сохраненный destination по имени
+      const savedDest = savedDestinations.find(saved => 
+        saved.name === aiDest.name && saved.link === aiDest.link
+      )
+      
+      if (savedDest) {
+        // Если найден сохраненный, используем его состояние isBlurred
+        return {
+          ...aiDest,
+          _id: savedDest._id, // Используем сохраненный _id
+          isBlurred: savedDest.isBlurred || false
+        }
+      }
+      
+      // Если не найден, используем AI-данные как есть
+      return aiDest
+    })
+  }
+
   const handleBlurButton = (itemToBlur: string) => {
     setFilteredItems((prevItems) => {
       const updatedItems = prevItems.map((item) => {
         const updatedDestinations = item.destinations.map((destination) => {
           if (destination._id === itemToBlur && destination.link.trim() === "") {
+            // Удаляем пользовательские расходы (без ссылки)
             axios
               .delete(`/api/city/${pathname}`)
               .then((response) => {
@@ -156,6 +180,7 @@ export default function CityPage() {
               })
             return null
           } else if (destination._id === itemToBlur) {
+            // Переключаем состояние isBlurred для рекомендованных мест
             return { ...destination, isBlurred: !destination.isBlurred }
           }
           return destination
@@ -245,7 +270,10 @@ export default function CityPage() {
     
     try {
       const budgetData = {
-        destinations: items[0].destinations,
+        destinations: items[0].destinations.map(dest => ({
+          ...dest,
+          _id: dest._id.toString() // Преобразуем ObjectId в строку для сохранения
+        })),
         foodPrice: items[0].foodPrice,
         hotelPrice: items[0].hotelPrice,
         totalPrice: items[0].price
@@ -266,9 +294,19 @@ export default function CityPage() {
       const budget = response.data.budget
       
       if (budget) {
-        setFilteredItems([{
-          ...items[0],
-          destinations: budget.destinations,
+        // Преобразуем строковые _id обратно в ObjectId и восстанавливаем состояние isBlurred
+        const restoredDestinations = budget.destinations.map((dest: any) => ({
+          ...dest,
+          _id: new mongoose.Types.ObjectId(dest._id),
+          isBlurred: dest.isBlurred || false // Восстанавливаем состояние отключения
+        }))
+        
+        // Сохраняем destinations для использования при загрузке AI-данных
+        setSavedDestinations(restoredDestinations)
+        
+        setFilteredItems((prevItems) => [{
+          ...prevItems[0],
+          destinations: restoredDestinations,
           foodPrice: budget.foodPrice,
           hotelPrice: budget.hotelPrice,
           price: budget.totalPrice
@@ -354,15 +392,20 @@ export default function CityPage() {
               </CardContent>
             </Card>
 
-            {/* Destinations List Card */}
+            {/* Recommended Places Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Достопримечательности и расходы</CardTitle>
-                <CardDescription>Нажмите на X, чтобы исключить из расчета бюджета</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  Рекомендуемые места
+                </CardTitle>
+                <CardDescription>Популярные достопримечательности и развлечения. Нажмите на X, чтобы исключить из расчета бюджета</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {item.destinations.map((destination, index) => (
+                  {item.destinations.filter(dest => dest.link.trim() !== "").map((destination, index) => (
                     <div
                       key={index}
                       className={`flex items-start justify-between p-4 rounded-lg border bg-card transition-all ${
@@ -400,75 +443,131 @@ export default function CityPage() {
                       </Button>
                     </div>
                   ))}
+                  {item.destinations.filter(dest => dest.link.trim() !== "").length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <svg className="h-12 w-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <p>Рекомендуемые места загружаются...</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Add Custom Expense Card */}
-            {session?.user ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Добавить свои расходы</CardTitle>
-                  <CardDescription>Добавьте планируемые покупки для расчета бюджета</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleFormSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="shop_name">Назначение</Label>
-                        <Input
-                          type="text"
-                          id="shop_name"
-                          placeholder="Купить сувениры для мамы..."
-                          value={shopName}
-                          onChange={(e) => setShopName(e.target.value)}
-                          required
-                        />
+            {/* My Expenses Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Мои расходы
+                </CardTitle>
+                <CardDescription>Добавленные вами расходы и планируемые покупки</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Existing Expenses */}
+                <div className="space-y-3">
+                  {item.destinations.filter(dest => dest.link.trim() === "").map((destination, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start justify-between p-4 rounded-lg border bg-card transition-all ${
+                        destination.isBlurred ? "opacity-40" : "hover:shadow-md"
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-start gap-3">
+                          <Badge variant="outline" className="mt-0.5">
+                            {index + 1}
+                          </Badge>
+                          <div>
+                            <h4 className="font-medium">{destination.name}</h4>
+                            <p className="text-sm text-muted-foreground mt-1">{destination.price.toLocaleString()} ₸</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="shop_price">Цена (₸)</Label>
-                        <Input
-                          type="number"
-                          id="shop_price"
-                          placeholder="1000"
-                          value={shopPrice || ""}
-                          onChange={(e) => setShopPrice(Number.parseInt(e.target.value) || 0)}
-                          min={0}
-                          required
-                        />
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleBlurButton(destination._id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button type="submit" className="w-full md:w-auto">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Добавить расход
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Добавить свои расходы</CardTitle>
-                  <CardDescription>Войдите в аккаунт, чтобы добавлять собственные расходы</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center space-y-4">
-                    <p className="text-muted-foreground">
-                      Для добавления собственных расходов необходимо войти в аккаунт
-                    </p>
-                    <Button asChild className="w-full md:w-auto">
-                      <Link href="/signin">Войти в аккаунт</Link>
-                    </Button>
+                  ))}
+                  {item.destinations.filter(dest => dest.link.trim() === "").length === 0 && (
+                    <div className="text-center py-6 text-muted-foreground border-2 border-dashed border-muted-foreground/20 rounded-lg">
+                      <svg className="h-8 w-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <p className="text-sm">Пока нет добавленных расходов</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Add New Expense Form */}
+                {session?.user ? (
+                  <div className="pt-4 border-t">
+                    <form onSubmit={handleFormSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="shop_name">Назначение</Label>
+                          <Input
+                            type="text"
+                            id="shop_name"
+                            placeholder="Купить сувениры для мамы..."
+                            value={shopName}
+                            onChange={(e) => setShopName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shop_price">Цена (₸)</Label>
+                          <Input
+                            type="number"
+                            id="shop_price"
+                            placeholder="1000"
+                            value={shopPrice || ""}
+                            onChange={(e) => setShopPrice(Number.parseInt(e.target.value) || 0)}
+                            min={0}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full md:w-auto">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Добавить расход
+                      </Button>
+                    </form>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <div className="pt-4 border-t">
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground mb-2">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className="font-medium">Требуется авторизация</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Для добавления собственных расходов необходимо войти в аккаунт
+                      </p>
+                      <Button asChild className="w-full md:w-auto">
+                        <Link href="/signin">Войти в аккаунт</Link>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="space-y-6">
             <Card className="sticky top-6">
               <CardHeader>
-                <CardTitle>Информация о ценах</CardTitle>
+                <CardTitle>Разбивка бюджета</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -487,6 +586,36 @@ export default function CityPage() {
                       <p className="text-xl font-semibold">{item.hotelPrice.toLocaleString()} ₸</p>
                     </div>
                   </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                    <svg className="h-5 w-5 text-primary mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Рекомендуемые места</p>
+                      <p className="text-xl font-semibold">
+                        {item.destinations
+                          .filter(dest => dest.link.trim() !== "" && !dest.isBlurred)
+                          .reduce((sum, dest) => sum + dest.price, 0)
+                          .toLocaleString()} ₸
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                    <svg className="h-5 w-5 text-primary mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Мои расходы</p>
+                      <p className="text-xl font-semibold">
+                        {item.destinations
+                          .filter(dest => dest.link.trim() === "" && !dest.isBlurred)
+                          .reduce((sum, dest) => sum + dest.price, 0)
+                          .toLocaleString()} ₸
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-6 border-t">
@@ -495,15 +624,6 @@ export default function CityPage() {
                       <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
                       <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
                     </div>
-                    {session?.user && (
-                      <Button 
-                        onClick={saveBudget}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        Сохранить бюджет
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardContent>
