@@ -73,6 +73,7 @@ export default function ProfilePage() {
   const [selectedCityForExpenses, setSelectedCityForExpenses] = useState<string>("all")
   const [expandedCityId, setExpandedCityId] = useState<string | null>(null)
   const [editedBudgets, setEditedBudgets] = useState<Record<string, { tripDate: string; hotelPrice: number; foodPrice: number }>>({})
+  const [editedDestinations, setEditedDestinations] = useState<Record<string, any[]>>({})
   const [editingHotel, setEditingHotel] = useState<Record<string, boolean>>({})
   const [editingFood, setEditingFood] = useState<Record<string, boolean>>({})
 
@@ -225,6 +226,7 @@ export default function ProfilePage() {
   // Sync editable fields from loaded budgets
   useEffect(() => {
     const next: Record<string, { tripDate: string; hotelPrice: number; foodPrice: number }> = {}
+    const nextDests: Record<string, any[]> = {}
     for (const cityId of Object.keys(budgets)) {
       const b = budgets[cityId] || {}
       next[cityId] = {
@@ -232,8 +234,11 @@ export default function ProfilePage() {
         hotelPrice: Number(b.hotelPrice || 0),
         foodPrice: Number(b.foodPrice || 0),
       }
+      const dests = Array.isArray(b.destinations) ? b.destinations : []
+      nextDests[cityId] = dests.map((d: any) => ({ ...d, __removed: false }))
     }
     setEditedBudgets(next)
+    setEditedDestinations(nextDests)
   }, [budgets])
 
   // Initialize forms when userProfile loads
@@ -431,28 +436,23 @@ export default function ProfilePage() {
 
     setIsUpdating(true)
     try {
-      const current = budgets[cityId] || {}
-      const destinationsList = current.destinations || []
-      const destinationsTotal = Array.isArray(destinationsList)
-        ? destinationsList.reduce((sum: number, d: any) => sum + Number(d?.price || 0), 0)
-        : 0
-      const totalPrice = Number(edit.hotelPrice || 0) + Number(edit.foodPrice || 0) + destinationsTotal
-
       const res = await fetch(`/api/budget/${cityId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           hotelPrice: Number(edit.hotelPrice || 0),
           foodPrice: Number(edit.foodPrice || 0),
-          totalPrice,
           tripDate: edit.tripDate || null,
-          destinations: destinationsList,
         }),
       })
       if (res.ok) {
         const data = await res.json()
         const updated = data.budget
         setBudgets({ ...budgets, [cityId]: updated })
+        setEditedDestinations((prev) => ({
+          ...prev,
+          [cityId]: (updated.destinations || []).map((d: any) => ({ ...d, __removed: false })),
+        }))
         setShowSuccessMessage(true)
         setTimeout(() => setShowSuccessMessage(false), 2000)
       }
@@ -482,36 +482,15 @@ export default function ProfilePage() {
     await saveCityBudget(cityId)
   }
 
-  const removeDestinationFromCity = async (cityId: string, destIndex: number) => {
-    const current = budgets[cityId]
-    if (!current) return
-
-    const newDestinations = (current.destinations || []).filter((_: any, i: number) => i !== destIndex)
-    const destinationsTotal = newDestinations.reduce((sum: number, d: any) => sum + Number(d?.price || 0), 0)
-
-    const edit = editedBudgets[cityId] || { tripDate: "", hotelPrice: current.hotelPrice || 0, foodPrice: current.foodPrice || 0 }
-    const totalPrice = Number(edit.hotelPrice || 0) + Number(edit.foodPrice || 0) + destinationsTotal
-
-    try {
-      const res = await fetch(`/api/budget/${cityId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destinations: newDestinations,
-          hotelPrice: Number(edit.hotelPrice || 0),
-          foodPrice: Number(edit.foodPrice || 0),
-          totalPrice,
-          tripDate: edit.tripDate || null,
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        const updated = data.budget
-        setBudgets({ ...budgets, [cityId]: updated })
-      }
-    } catch (e) {
-      console.error("Ошибка при удалении места из бюджета:", e)
-    }
+  const removeDestinationFromCity = (cityId: string, destIndex: number) => {
+    setEditedDestinations((prev) => {
+      const list = prev[cityId] ? [...prev[cityId]] : []
+      if (!list[destIndex]) return prev
+      const toggled = { ...list[destIndex], __removed: !list[destIndex].__removed }
+      const next = [...list]
+      next[destIndex] = toggled
+      return { ...prev, [cityId]: next }
+    })
   }
 
   const formatDateForInput = (value: string | Date): string => {
@@ -964,6 +943,11 @@ export default function ProfilePage() {
                                     <h3 className="text-lg font-bold">{city?.city || "Город"}</h3>
                                     <p className="text-sm opacity-90">{city?.country || "Страна"}</p>
                                   </div>
+                                  <Button asChild size="icon" variant="secondary" className="absolute bottom-3 right-3 h-9 w-9" aria-label="Перейти к городу">
+                                    <Link href={`/city/${cityId}`}>
+                                      <ArrowRight className="h-5 w-5" />
+                                    </Link>
+                                  </Button>
                                 </div>
 
                                 {/* Budget Breakdown */}
@@ -1087,19 +1071,26 @@ export default function ProfilePage() {
                                     <div className="flex items-center justify-between">
                                       <span className="text-lg font-semibold">Итого</span>
                                       <span className="text-2xl font-bold text-primary">
-                                        {budget.totalPrice?.toLocaleString() || 0} ₸
+                                        {(() => {
+                                          const staged = editedDestinations[cityId]
+                                          const list = (staged && Array.isArray(staged) ? staged : (budget.destinations || [])).filter((d: any) => !d?.__removed)
+                                          const destTotal = list.reduce((s: number, d: any) => s + Number(d?.price || 0), 0)
+                                          const hotel = Number(editedBudgets[cityId]?.hotelPrice ?? budget.hotelPrice ?? 0)
+                                          const food = Number(editedBudgets[cityId]?.foodPrice ?? budget.foodPrice ?? 0)
+                                          return (hotel + food + destTotal).toLocaleString()
+                                        })()} ₸
                                       </span>
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Destinations List */}
-                                {budget.destinations && budget.destinations.length > 0 && (
+                                {(editedDestinations[cityId] && editedDestinations[cityId].length > 0) && (
                                   <div className="space-y-4">
                                     <h4 className="text-lg font-semibold">Запланированные места</h4>
                                     <div className="space-y-2">
-                                      {budget.destinations.map((dest: any, destIndex: number) => (
-                                        <div key={destIndex} className="flex items-center justify-between p-3 rounded-lg border bg-white">
+                                      {editedDestinations[cityId].map((dest: any, destIndex: number) => (
+                                        <div key={destIndex} className={`flex items-center justify-between p-3 rounded-lg border bg-white ${dest.__removed ? 'opacity-50' : ''}`}>
                                           <div>
                                             <p className="font-medium">{dest.name}</p>
                                             {dest.link && (
@@ -1126,14 +1117,38 @@ export default function ProfilePage() {
                                 )}
 
                                 {/* Actions */}
-                                <div className="flex gap-3 pt-4 border-t">
-                                  <Button asChild className="flex-1">
-                                    <Link href={`/city/${cityId}`}>
-                                      Редактировать бюджет
-                                    </Link>
+                                <div className="flex flex-wrap gap-3 pt-4 border-t">
+                                  <Button
+                                    className="flex-1"
+                                    onClick={() => saveCityBudget(cityId)}
+                                    disabled={isUpdating}
+                                  >
+                                    {isUpdating ? (
+                                      <span className="flex items-center gap-2">
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                        Сохранение...
+                                      </span>
+                                    ) : (
+                                      "Сохранить изменения"
+                                    )}
                                   </Button>
-                                  <Button variant="outline" onClick={() => setExpandedCityId(null)}>
-                                    Свернуть
+                                  
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                      const b = budgets[cityId] || {}
+                                      setEditedBudgets((prev) => ({
+                                        ...prev,
+                                        [cityId]: {
+                                          tripDate: b.tripDate ? formatDateForInput(b.tripDate) : "",
+                                          hotelPrice: Number(b.hotelPrice || 0),
+                                          foodPrice: Number(b.foodPrice || 0),
+                                        },
+                                      }))
+                                      setExpandedCityId(null)
+                                    }}
+                                  >
+                                    Отменить
                                   </Button>
                                 </div>
 
