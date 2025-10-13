@@ -36,6 +36,7 @@ export default function CityPage() {
   const [sessionChecked, setSessionChecked] = useState(false)
   const [isPlanningTrip, setIsPlanningTrip] = useState(false)
   const [tripPlanned, setTripPlanned] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const [items, setFilteredItems] = useState<Item[]>([
     {
@@ -179,18 +180,10 @@ export default function CityPage() {
       const updatedItems = prevItems.map((item) => {
         const updatedDestinations = item.destinations.map((destination) => {
           if (destination._id === itemToBlur && destination.link.trim() === "") {
-            // Удаляем пользовательские расходы (без ссылки)
-            axios
-              .delete(`/api/city/${pathname}`)
-              .then((response) => {
-                console.log(response.data)
-              })
-              .catch((error) => {
-                console.error("error")
-              })
+            // Удаляем пользовательские расходы (без ссылки) - только локально
             return null
           } else if (destination._id === itemToBlur) {
-            // Переключаем состояние isBlurred для рекомендованных мест
+            // Переключаем состояние isBlurred для рекомендованных мест - только локально
             return { ...destination, isBlurred: !destination.isBlurred }
           }
           return destination
@@ -203,12 +196,8 @@ export default function CityPage() {
       return updatedItems
     })
     
-    // Автоматически сохраняем бюджет после изменения
-    setTimeout(() => {
-      if (session?.user) {
-        saveBudget()
-      }
-    }, 100)
+    // Отмечаем, что есть несохраненные изменения
+    setHasUnsavedChanges(true)
   }
 
   useEffect(() => {
@@ -243,18 +232,11 @@ export default function CityPage() {
       },
     ])
 
-    if (shopName.trim() !== "") {
-      await axios.post(`/api/city/${pathname}`, newDestination)
-    }
     setShopName("")
     setShopPrice(0)
     
-    // Автоматически сохраняем бюджет после добавления расхода
-    setTimeout(() => {
-      if (session?.user) {
-        saveBudget()
-      }
-    }, 100)
+    // Отмечаем, что есть несохраненные изменения
+    setHasUnsavedChanges(true)
   }
 
   const handleToggleFavorite = async () => {
@@ -286,6 +268,7 @@ export default function CityPage() {
       
       // Показываем успешное состояние
       setTripPlanned(true)
+      setHasUnsavedChanges(false) // Сбрасываем флаг несохраненных изменений
     } catch (error) {
       console.error("Ошибка при планировании поездки:", error)
       // В случае ошибки можно показать toast или другое уведомление
@@ -340,6 +323,7 @@ export default function CityPage() {
           hotelPrice: budget.hotelPrice,
           price: budget.totalPrice
         }])
+        setHasUnsavedChanges(false) // Сбрасываем флаг при загрузке данных
       }
     } catch (error) {
       console.error("Ошибка при загрузке бюджета:", error)
@@ -673,7 +657,7 @@ export default function CityPage() {
                         ) : (
                           <>
                             <PlaneTakeoff className="h-4 w-4 mr-2" />
-                            Запланировать поездку
+                            {hasUnsavedChanges ? "Запланировать поездку (есть изменения)" : "Запланировать поездку"}
                           </>
                         )}
                       </Button>

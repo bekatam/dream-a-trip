@@ -82,7 +82,7 @@ export default function ProfilePage() {
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [activeTab, setActiveTab] = useState("favorites")
+  const [activeTab, setActiveTab] = useState("expenses")
   const [dataLoaded, setDataLoaded] = useState(false)
   const [sessionChecked, setSessionChecked] = useState(false)
 
