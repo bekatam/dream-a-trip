@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import { getData } from "@/app/endpoints/axios"
 import axios from "axios"
 import mongoose from "mongoose"
-import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft, Heart } from "lucide-react"
+import { MapPin, Utensils, Hotel, Plus, X, Loader2, ArrowLeft, Heart, PlaneTakeoff, LandPlot } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,9 @@ export default function CityPage() {
   const { data: session, status } = useSession()
   const [isFavorite, setIsFavorite] = useState(false)
   const [savedDestinations, setSavedDestinations] = useState<any[]>([])
+  const [sessionChecked, setSessionChecked] = useState(false)
+  const [isPlanningTrip, setIsPlanningTrip] = useState(false)
+  const [tripPlanned, setTripPlanned] = useState(false)
 
   const [items, setFilteredItems] = useState<Item[]>([
     {
@@ -113,10 +116,17 @@ export default function CityPage() {
     getDataAsync()
   }, [pathname])
 
+  // Check session and trigger data loading only once
+  useEffect(() => {
+    if (session?.user && !sessionChecked) {
+      setSessionChecked(true)
+    }
+  }, [session, sessionChecked])
+
   // Check favorite status and load budget when session is available
   useEffect(() => {
     const checkFavoriteStatusAndLoadBudget = async () => {
-      if (session?.user) {
+      if (session?.user && sessionChecked) {
         try {
           // Проверяем статус избранного
           console.log("Проверяем избранное для города:", pathname)
@@ -137,7 +147,7 @@ export default function CityPage() {
       }
     }
     checkFavoriteStatusAndLoadBudget()
-  }, [session, pathname])
+  }, [sessionChecked, pathname])
 
   // one-time guard ref to avoid duplicate AI requests in dev Strict Mode
   const aiOnceRef = useRef<{ key?: string }>({})
@@ -262,6 +272,25 @@ export default function CityPage() {
       }
     } catch (error) {
       console.error("Ошибка при работе с избранным:", error)
+    }
+  }
+
+  const handlePlanTrip = async () => {
+    if (!session?.user || isPlanningTrip) return
+    
+    setIsPlanningTrip(true)
+    
+    try {
+      // Сохраняем бюджет с текущими данными
+      await saveBudget()
+      
+      // Показываем успешное состояние
+      setTripPlanned(true)
+    } catch (error) {
+      console.error("Ошибка при планировании поездки:", error)
+      // В случае ошибки можно показать toast или другое уведомление
+    } finally {
+      setIsPlanningTrip(false)
     }
   }
 
@@ -624,6 +653,31 @@ export default function CityPage() {
                       <p className="text-sm text-muted-foreground">Итоговая стоимость</p>
                       <p className="text-3xl font-bold text-primary">{item.price.toLocaleString()} ₸</p>
                     </div>
+                    {session?.user && (
+                      <Button 
+                        onClick={tripPlanned ? () => window.location.href = '/profile' : handlePlanTrip}
+                        className="w-full bg-primary hover:bg-primary/90"
+                        size="lg"
+                        disabled={isPlanningTrip}
+                      >
+                        {isPlanningTrip ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Планируем поездку...
+                          </>
+                        ) : tripPlanned ? (
+                          <>
+                            <LandPlot className="h-4 w-4 mr-2" />
+                            Перейти в запланированные поездки
+                          </>
+                        ) : (
+                          <>
+                            <PlaneTakeoff className="h-4 w-4 mr-2" />
+                            Запланировать поездку
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

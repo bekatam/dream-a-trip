@@ -76,10 +76,15 @@ export default function ProfilePage() {
   const [editedDestinations, setEditedDestinations] = useState<Record<string, any[]>>({})
   const [editingHotel, setEditingHotel] = useState<Record<string, boolean>>({})
   const [editingFood, setEditingFood] = useState<Record<string, boolean>>({})
+  const [savingHotel, setSavingHotel] = useState<Record<string, boolean>>({})
+  const [savingFood, setSavingFood] = useState<Record<string, boolean>>({})
+  const [savingDate, setSavingDate] = useState<Record<string, boolean>>({})
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [activeTab, setActiveTab] = useState("favorites")
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   // Real user data from session
   const user = {
@@ -137,6 +142,14 @@ export default function ProfilePage() {
     countriesVisited: new Set(countriesFromBudgets).size,
     upcomingTrips: budgetEntries.length, // Use budgets as "upcoming trips"
   }
+
+  // Check session and trigger data loading only once
+  useEffect(() => {
+    if (session && !sessionChecked) {
+      setSessionChecked(true)
+      setDataLoaded(false) // Trigger data loading
+    }
+  }, [session, sessionChecked])
 
   // Load real data from APIs in parallel
   useEffect(() => {
@@ -219,13 +232,14 @@ export default function ProfilePage() {
         setBudgetsLoading(false)
       } finally {
         setGlobalLoading(false)
+        setDataLoaded(true)
       }
     }
 
-    if (session) {
+    if (sessionChecked && !dataLoaded) {
       loadData()
     }
-  }, [session])
+  }, [dataLoaded, sessionChecked])
 
   // Sync editable fields from loaded budgets
   useEffect(() => {
@@ -240,6 +254,10 @@ export default function ProfilePage() {
       }
       const dests = Array.isArray(b.destinations) ? b.destinations : []
       nextDests[cityId] = dests.map((d: any) => ({ ...d, __removed: false }))
+      // Debug: log destinations to check isBlurred state
+      if (dests.length > 0) {
+        console.log(`Destinations for ${cityId}:`, dests.map((d: any) => ({ name: d.name, isBlurred: d.isBlurred })))
+      }
     }
     setEditedBudgets(next)
     setEditedDestinations(nextDests)
@@ -419,36 +437,109 @@ export default function ProfilePage() {
   }
 
   // Save budget edits for a city
-  const saveCityBudget = async (cityId: string) => {
+  const saveCityBudget = async (cityId: string, field?: 'hotel' | 'food' | 'date') => {
     const edit = editedBudgets[cityId]
     if (!edit) return
 
-    setIsUpdating(true)
+    const currentBudget = budgets[cityId]
+    if (!currentBudget) return
+
+    // Prepare payload with only changed fields
+    const payload: any = {}
+    
+    // Check if trip date changed
+    if (field === 'date' || field === undefined) {
+      const currentDate = currentBudget.tripDate ? new Date(currentBudget.tripDate).toISOString().split('T')[0] : ''
+      if (edit.tripDate !== currentDate) {
+        payload.tripDate = edit.tripDate || null
+      }
+    }
+    
+    // Check if hotel price changed
+    if (field === 'hotel' || field === undefined) {
+      const currentHotelPrice = Number(currentBudget.hotelPrice || 0)
+      if (Number(edit.hotelPrice || 0) !== currentHotelPrice) {
+        payload.hotelPrice = Number(edit.hotelPrice || 0)
+      }
+    }
+    
+    // Check if food price changed
+    if (field === 'food' || field === undefined) {
+      const currentFoodPrice = Number(currentBudget.foodPrice || 0)
+      if (Number(edit.foodPrice || 0) !== currentFoodPrice) {
+        payload.foodPrice = Number(edit.foodPrice || 0)
+      }
+    }
+
+    // Check if destinations changed (removed items)
+    if (field === undefined) {
+      const editedDests = editedDestinations[cityId]
+      if (editedDests) {
+        // Filter out removed destinations and remove __removed flag
+        const filteredDests = editedDests
+          .filter((dest: any) => !dest.__removed)
+          .map((dest: any) => {
+            const { __removed, ...cleanDest } = dest
+            return cleanDest
+          })
+        
+        // Compare with current destinations
+        const currentDests = currentBudget.destinations || []
+        if (JSON.stringify(filteredDests) !== JSON.stringify(currentDests)) {
+          payload.destinations = filteredDests
+        }
+      }
+    }
+
+    // If nothing changed, don't send request
+    if (Object.keys(payload).length === 0) {
+      return
+    }
+
+    // Set appropriate loading state
+    if (field === 'hotel') {
+      setSavingHotel(prev => ({ ...prev, [cityId]: true }))
+    } else if (field === 'food') {
+      setSavingFood(prev => ({ ...prev, [cityId]: true }))
+    } else if (field === 'date') {
+      setSavingDate(prev => ({ ...prev, [cityId]: true }))
+    } else {
+      setIsUpdating(true)
+    }
+
     try {
       const res = await fetch(`/api/budget/${cityId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hotelPrice: Number(edit.hotelPrice || 0),
-          foodPrice: Number(edit.foodPrice || 0),
-          tripDate: edit.tripDate || null,
-        }),
+        body: JSON.stringify(payload),
       })
       if (res.ok) {
         const data = await res.json()
         const updated = data.budget
         setBudgets({ ...budgets, [cityId]: updated })
+        
+        // Clear edited destinations and sync with updated data
         setEditedDestinations((prev) => ({
           ...prev,
           [cityId]: (updated.destinations || []).map((d: any) => ({ ...d, __removed: false })),
         }))
+        
         setShowSuccessMessage(true)
         setTimeout(() => setShowSuccessMessage(false), 2000)
       }
     } catch (e) {
       console.error("Ошибка при сохранении бюджета:", e)
     } finally {
-      setIsUpdating(false)
+      // Clear appropriate loading state
+      if (field === 'hotel') {
+        setSavingHotel(prev => ({ ...prev, [cityId]: false }))
+      } else if (field === 'food') {
+        setSavingFood(prev => ({ ...prev, [cityId]: false }))
+      } else if (field === 'date') {
+        setSavingDate(prev => ({ ...prev, [cityId]: false }))
+      } else {
+        setIsUpdating(false)
+      }
     }
   }
 
@@ -466,6 +557,12 @@ export default function ProfilePage() {
         hotelPrice: Number(nextHotel),
         foodPrice: Number(nextFood),
       },
+    }))
+
+    // Reset destinations to original state (remove all __removed flags)
+    setEditedDestinations((prev) => ({
+      ...prev,
+      [cityId]: (current.destinations || []).map((d: any) => ({ ...d, __removed: false })),
     }))
 
     await saveCityBudget(cityId)
@@ -537,6 +634,18 @@ export default function ProfilePage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value)
     setSelectedExpenses([])
+    setExpandedCityId(null) // Сворачиваем детализацию поездки
+  }
+
+  // Force refresh data function
+  const refreshData = () => {
+    setDataLoaded(false)
+    setSessionChecked(false)
+  }
+
+  // Add refresh button to profile header
+  const handleRefresh = () => {
+    refreshData()
   }
 
   // Filter expenses by search query
@@ -681,12 +790,20 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                      <Edit className="h-4 w-4" />
-                      Редактировать
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="gap-2 bg-transparent" onClick={handleRefresh}>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Обновить
                     </Button>
-                  </DialogTrigger>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                        <Edit className="h-4 w-4" />
+                        Редактировать
+                      </Button>
+                    </DialogTrigger>
+                  </div>
                   <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader className="space-y-3">
                       <DialogTitle className="text-2xl">Редактировать профиль</DialogTitle>
@@ -867,13 +984,13 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4 py-8">
           <Tabs defaultValue="favorites" value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-3">
-            <TabsTrigger value="favorites" className="gap-2">
-              <Heart className="h-4 w-4" />
-              Избранное
-            </TabsTrigger>
             <TabsTrigger value="expenses" className="gap-2">
               <Wallet className="h-4 w-4" />
               Расходы
+            </TabsTrigger>
+            <TabsTrigger value="favorites" className="gap-2">
+              <Heart className="h-4 w-4" />
+              Избранное
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -1069,7 +1186,9 @@ export default function ProfilePage() {
                                     Бюджет
                                   </Badge>
                                 </div>
-                                <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                <div className={`transform transition-transform cursor-pointer duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                  onClick={() => cityId && toggleCityDetails(cityId)}
+                                >
                                   <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
@@ -1102,7 +1221,7 @@ export default function ProfilePage() {
                                 {/* Budget Breakdown */}
                                 <div className="space-y-4">
                                   <h4 className="text-lg font-semibold">Разбивка бюджета</h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="p-4 rounded-lg border bg-blue-50">
                                       <div className="flex items-center gap-2 mb-2">
                                         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -1137,10 +1256,35 @@ export default function ProfilePage() {
                                             }}
                                           />
                                           <div className="mt-2 flex items-center gap-2">
-                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); saveCityBudget(cityId).then(() => setEditingHotel({ ...editingHotel, [cityId]: false })) }}>
-                                              Сохранить
+                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); saveCityBudget(cityId, 'hotel').then(() => setEditingHotel({ ...editingHotel, [cityId]: false })) }} disabled={savingHotel[cityId]}>
+                                              {savingHotel[cityId] ? (
+                                                <span className="flex items-center gap-2">
+                                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                  Сохранение...
+                                                </span>
+                                              ) : (
+                                                "Сохранить"
+                                              )}
                                             </Button>
-                                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingHotel({ ...editingHotel, [cityId]: false }); setEditedBudgets((prev) => ({ ...prev, [cityId]: { tripDate: prev[cityId]?.tripDate || "", hotelPrice: Number(budget.hotelPrice || 0), foodPrice: prev[cityId]?.foodPrice ?? Number(budget.foodPrice || 0) } })) }}>
+                                            <Button size="sm" variant="outline" onClick={(e) => { 
+                                              e.stopPropagation(); 
+                                              setEditedBudgets((prev) => ({ 
+                                                ...prev, 
+                                                [cityId]: { 
+                                                  tripDate: prev[cityId]?.tripDate || "", 
+                                                  hotelPrice: Number(budget.defaultHotelPrice || budget.hotelPrice || 0), 
+                                                  foodPrice: prev[cityId]?.foodPrice ?? Number(budget.defaultFoodPrice || budget.foodPrice || 0) 
+                                                } 
+                                              })); 
+                                              // Reset destinations to original state
+                                              setEditedDestinations((prev) => ({
+                                                ...prev,
+                                                [cityId]: (budget.destinations || []).map((d: any) => ({ ...d, __removed: false })),
+                                              }));
+                                            }} disabled={savingHotel[cityId]}>
+                                              По умолчанию
+                                            </Button>
+                                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingHotel({ ...editingHotel, [cityId]: false }); setEditedBudgets((prev) => ({ ...prev, [cityId]: { tripDate: prev[cityId]?.tripDate || "", hotelPrice: Number(budget.hotelPrice || 0), foodPrice: prev[cityId]?.foodPrice ?? Number(budget.foodPrice || 0) } })) }} disabled={savingHotel[cityId]}>
                                               Отмена
                                             </Button>
                                           </div>
@@ -1184,10 +1328,35 @@ export default function ProfilePage() {
                                             }}
                                           />
                                           <div className="mt-2 flex items-center gap-2">
-                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); saveCityBudget(cityId).then(() => setEditingFood({ ...editingFood, [cityId]: false })) }}>
-                                              Сохранить
+                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); saveCityBudget(cityId, 'food').then(() => setEditingFood({ ...editingFood, [cityId]: false })) }} disabled={savingFood[cityId]}>
+                                              {savingFood[cityId] ? (
+                                                <span className="flex items-center gap-2">
+                                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                  Сохранение...
+                                                </span>
+                                              ) : (
+                                                "Сохранить"
+                                              )}
                                             </Button>
-                                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingFood({ ...editingFood, [cityId]: false }); setEditedBudgets((prev) => ({ ...prev, [cityId]: { tripDate: prev[cityId]?.tripDate || "", hotelPrice: prev[cityId]?.hotelPrice ?? Number(budget.hotelPrice || 0), foodPrice: Number(budget.foodPrice || 0) } })) }}>
+                                            <Button size="sm" variant="outline" onClick={(e) => { 
+                                              e.stopPropagation(); 
+                                              setEditedBudgets((prev) => ({ 
+                                                ...prev, 
+                                                [cityId]: { 
+                                                  tripDate: prev[cityId]?.tripDate || "", 
+                                                  hotelPrice: prev[cityId]?.hotelPrice ?? Number(budget.hotelPrice || 0), 
+                                                  foodPrice: Number(budget.defaultFoodPrice || budget.foodPrice || 0) 
+                                                } 
+                                              })); 
+                                              // Reset destinations to original state
+                                              setEditedDestinations((prev) => ({
+                                                ...prev,
+                                                [cityId]: (budget.destinations || []).map((d: any) => ({ ...d, __removed: false })),
+                                              }));
+                                            }} disabled={savingFood[cityId]}>
+                                              По умолчанию
+                                            </Button>
+                                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingFood({ ...editingFood, [cityId]: false }); setEditedBudgets((prev) => ({ ...prev, [cityId]: { tripDate: prev[cityId]?.tripDate || "", hotelPrice: prev[cityId]?.hotelPrice ?? Number(budget.hotelPrice || 0), foodPrice: Number(budget.foodPrice || 0) } })) }} disabled={savingFood[cityId]}>
                                               Отмена
                                             </Button>
                                           </div>
@@ -1195,24 +1364,6 @@ export default function ProfilePage() {
                                       ) : (
                                         <p className="text-xl font-bold">{budget.foodPrice?.toLocaleString() || 0} ₸</p>
                                       )}
-                                    </div>
-
-                                    <div className="p-4 rounded-lg border bg-purple-50">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                          </svg>
-                                        </div>
-                                        <span className="font-medium">Развлечения</span>
-                                        <Button size="sm" asChild variant="outline" className="ml-auto h-7 px-2 bg-transparent">
-                                          <Link href={cityId ? `/city/${cityId}` : "#"}>Изменить</Link>
-                                        </Button>
-                                      </div>
-                                      <p className="text-xl font-bold">
-                                        {((budget.destinations || []).reduce((sum: number, dest: any) => sum + (dest.price || 0), 0)).toLocaleString()} ₸
-                                      </p>
                                     </div>
                                   </div>
 
@@ -1222,7 +1373,7 @@ export default function ProfilePage() {
                                       <span className="text-2xl font-bold text-primary">
                                         {(() => {
                                           const staged = editedDestinations[cityId]
-                                          const list = (staged && Array.isArray(staged) ? staged : (budget.destinations || [])).filter((d: any) => !d?.__removed)
+                                          const list = (staged && Array.isArray(staged) ? staged : (budget.destinations || [])).filter((d: any) => !d?.__removed && !d?.isBlurred)
                                           const destTotal = list.reduce((s: number, d: any) => s + Number(d?.price || 0), 0)
                                           const hotel = Number(editedBudgets[cityId]?.hotelPrice ?? budget.hotelPrice ?? 0)
                                           const food = Number(editedBudgets[cityId]?.foodPrice ?? budget.foodPrice ?? 0)
@@ -1239,10 +1390,10 @@ export default function ProfilePage() {
                                     <h4 className="text-lg font-semibold">Запланированные места</h4>
                                     <div className="space-y-2">
                                       {editedDestinations[cityId].map((dest: any, destIndex: number) => (
-                                        <div key={destIndex} className={`flex items-center justify-between p-3 rounded-lg border bg-white ${dest.__removed ? 'opacity-50' : ''}`}>
+                                        <div key={destIndex} className={`flex items-center justify-between p-3 rounded-lg border bg-white ${dest.__removed || dest.isBlurred ? 'opacity-50' : ''}`}>
                                           <div>
                                             <p className="font-medium">{dest.name}</p>
-                                            {dest.link && (
+                                            {dest.link && dest.link.trim() !== "" && (
                                               <a 
                                                 href={dest.link} 
                                                 target="_blank" 
@@ -1269,10 +1420,10 @@ export default function ProfilePage() {
                                 <div className="flex flex-wrap gap-3 pt-4 border-t">
                                   <Button
                                     className="flex-1"
-                                    onClick={() => saveCityBudget(cityId)}
-                                    disabled={isUpdating}
+                                    onClick={() => saveCityBudget(cityId, 'date')}
+                                    disabled={savingDate[cityId]}
                                   >
-                                    {isUpdating ? (
+                                    {savingDate[cityId] ? (
                                       <span className="flex items-center gap-2">
                                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                                         Сохранение...
@@ -1395,7 +1546,7 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* <Card>
                 <CardHeader>
                   <CardTitle>Предпочтения</CardTitle>
                   <CardDescription>Настройте параметры путешествий</CardDescription>
@@ -1519,9 +1670,9 @@ export default function ProfilePage() {
                     </DialogContent>
                   </Dialog>
                 </CardContent>
-              </Card>
+              </Card> */}
 
-              <Card className="lg:col-span-2">
+              {/* <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="text-destructive">Опасная зона</CardTitle>
                   <CardDescription>Необратимые действия с вашим аккаунтом</CardDescription>
@@ -1531,7 +1682,7 @@ export default function ProfilePage() {
                     Удалить аккаунт
                   </Button>
                 </CardContent>
-              </Card>
+              </Card> */}
             </div>
           </TabsContent>
         </Tabs>
