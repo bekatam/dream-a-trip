@@ -76,6 +76,9 @@ export default function ProfilePage() {
   const [editedDestinations, setEditedDestinations] = useState<Record<string, any[]>>({})
   const [editingHotel, setEditingHotel] = useState<Record<string, boolean>>({})
   const [editingFood, setEditingFood] = useState<Record<string, boolean>>({})
+  const [selectedExpenses, setSelectedExpenses] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   // Real user data from session
   const user = {
@@ -493,6 +496,67 @@ export default function ProfilePage() {
     })
   }
 
+  // Handle expense selection
+  const toggleExpenseSelection = (cityId: string) => {
+    setSelectedExpenses(prev => 
+      prev.includes(cityId) 
+        ? prev.filter(id => id !== cityId)
+        : [...prev, cityId]
+    )
+  }
+
+  // Handle bulk delete
+  const deleteSelectedExpenses = async () => {
+    if (selectedExpenses.length === 0) return
+    
+    setIsUpdating(true)
+    setShowDeleteModal(false)
+    try {
+      await Promise.allSettled(
+        selectedExpenses.map(cityId => 
+          fetch(`/api/budget/${cityId}`, { method: "DELETE" })
+        )
+      )
+      
+      // Update local state
+      const newBudgets = { ...budgets }
+      selectedExpenses.forEach(cityId => {
+        delete newBudgets[cityId]
+      })
+      setBudgets(newBudgets)
+      setSelectedExpenses([])
+      setShowSuccessMessage(true)
+      setTimeout(() => setShowSuccessMessage(false), 2000)
+    } catch (error) {
+      console.error("Ошибка при удалении поездок:", error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Get selected cities names for confirmation modal
+  const getSelectedCitiesNames = () => {
+    return selectedExpenses.map(cityId => {
+      const city = destinations.find(dest => dest._id === cityId)
+      return city?.city || "Неизвестный город"
+    })
+  }
+
+  // Filter expenses by search query
+  const filteredBudgetEntries = budgetEntries.filter((budget, index) => {
+    const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
+    const city = destinations.find(dest => dest._id === cityId)
+    
+    if (!searchQuery) return true
+    
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      city?.city?.toLowerCase().includes(searchLower) ||
+      city?.country?.toLowerCase().includes(searchLower) ||
+      budget.totalPrice?.toString().includes(searchQuery)
+    )
+  })
+
   const formatDateForInput = (value: string | Date): string => {
     if (!value) return ""
     const d = new Date(value)
@@ -553,6 +617,46 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-2xl text-destructive">Подтверждение удаления</DialogTitle>
+            <DialogDescription className="text-base">
+              Вы уверены, что хотите удалить следующие поездки? Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Будут удалены поездки в города:</p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {getSelectedCitiesNames().map((cityName, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{cityName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={isUpdating}>
+              Отмена
+            </Button>
+            <Button variant="destructive" onClick={deleteSelectedExpenses} disabled={isUpdating}>
+              {isUpdating ? (
+                <span className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Удаление...
+                </span>
+              ) : (
+                "Удалить поездки"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Header Section */}
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-8">
@@ -873,6 +977,39 @@ export default function ProfilePage() {
                   <CardDescription>Ваши траты по всем городам</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Search and Bulk Actions */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
+                    <div className="flex-1 max-w-md">
+                      <Input
+                        placeholder="Поиск по городу, стране или сумме..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    {selectedExpenses.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          Выбрано: {selectedExpenses.length}
+                        </span>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowDeleteModal(true)}
+                          disabled={isUpdating}
+                        >
+                          {isUpdating ? (
+                            <span className="flex items-center gap-2">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Удаление...
+                            </span>
+                          ) : (
+                            "Удалить выбранные"
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   {budgetsLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -885,30 +1022,42 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {budgetEntries.map((budget, index) => {
+                      {filteredBudgetEntries.map((budget, index) => {
                         const cityId = Object.keys(budgets).find(key => budgets[key] === budget)
                         const city = destinations.find(dest => dest._id === cityId)
                         const isExpanded = expandedCityId === cityId
+                        const isSelected = cityId ? selectedExpenses.includes(cityId) : false
                         
                         return (
                           <div key={index} className="border rounded-lg overflow-hidden">
                             {/* Main city card */}
-                            <div
-                              className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
-                              onClick={() => cityId && toggleCityDetails(cityId)}
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                  <MapPin className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold group-hover:text-primary transition-colors">
-                                    {city?.city || "Неизвестный город"}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">{city?.country}</p>
+                            <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group">
+                              <div className="flex items-center gap-4 flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    if (cityId) toggleExpenseSelection(cityId)
+                                  }}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                                <div 
+                                  className="flex items-center gap-4 flex-1 cursor-pointer"
+                                  onClick={() => cityId && toggleCityDetails(cityId)}
+                                >
+                                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                    <MapPin className="h-6 w-6 text-primary" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-semibold group-hover:text-primary transition-colors">
+                                      {city?.city || "Неизвестный город"}
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {budget.lastUpdated ? new Date(budget.lastUpdated).toLocaleDateString("ru-RU") : "Недавно"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">{city?.country}</p>
+                                  </div>
                                 </div>
                               </div>
                               <div className="text-right flex items-center gap-3">
